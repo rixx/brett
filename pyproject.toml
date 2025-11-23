@@ -1,0 +1,7 @@
+[project]
+name = "brett"
+version = "0.0.0"
+description = "Kanban board project that understands email threads"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
