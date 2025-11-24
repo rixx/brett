@@ -42,3 +42,25 @@ def test_entry_str_without_summary(card):
     )
     assert str(entry).startswith("sender@example.com: This is a very long")
     assert len(str(entry).split(": ")[1]) <= 50
+
+
+def test_card_entry_count_with_no_entries(card):
+    assert card.entry_count == 0
+
+
+def test_card_entry_count_with_entries(card):
+    Entry.objects.create(
+        card=card,
+        from_addr="sender1@example.com",
+        subject="Subject 1",
+        date=timezone.now(),
+        body="Body 1",
+    )
+    Entry.objects.create(
+        card=card,
+        from_addr="sender2@example.com",
+        subject="Subject 2",
+        date=timezone.now(),
+        body="Body 2",
+    )
+    assert card.entry_count == 2

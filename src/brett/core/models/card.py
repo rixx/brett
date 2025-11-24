@@ -17,3 +17,7 @@ class Card(BrettModel):
 
     def __str__(self):
         return self.title
+
+    @property
+    def entry_count(self):
+        return self.entries.count()

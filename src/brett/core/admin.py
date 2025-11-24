@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Board, Card, Column, Entry, Tag
+from .models import Board, Card, Column, Correspondent, Entry, Tag
 
 
 class ColumnInline(admin.TabularInline):
@@ -34,8 +34,7 @@ class BoardAdmin(admin.ModelAdmin):
     readonly_fields = ["created_at", "updated_at"]
     inlines = [ColumnInline]
     fieldsets = [
-        (None, {"fields": ["name", "description"]}),
-        ("Settings", {"fields": ["aliases"]}),
+        (None, {"fields": ["name", "slug", "description"]}),
         ("Timestamps", {"fields": ["created_at", "updated_at"]}),
     ]
 
@@ -120,3 +119,16 @@ class TagAdmin(admin.ModelAdmin):
         return obj.entries.count()
 
     entry_count.short_description = "Entries"
+
+
+@admin.register(Correspondent)
+class CorrespondentAdmin(admin.ModelAdmin):
+    list_display = ["email", "name", "board"]
+    list_filter = ["board"]
+    search_fields = ["email", "name"]
+    readonly_fields = ["created_at", "updated_at"]
+    fieldsets = [
+        (None, {"fields": ["board", "email", "name"]}),
+        ("Aliases", {"fields": ["aliases"]}),
+        ("Timestamps", {"fields": ["created_at", "updated_at"]}),
+    ]

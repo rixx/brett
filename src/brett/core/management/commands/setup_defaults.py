@@ -19,6 +19,7 @@ class Command(BaseCommand):
 
         board, created = Board.objects.get_or_create(
             name=board_name,
+            slug=board_name,
             defaults={"description": "Default kanban board for email threads"},
         )
 
