@@ -6,7 +6,7 @@ from brett.core.models import Board, Card, Column, Correspondent, Entry, Tag
 
 @pytest.fixture
 def board(db):
-    return Board.objects.create(name="Test Board", description="Test description")
+    return Board.objects.create(name="Test Board", slug="test-board", description="Test description")
 
 
 @pytest.fixture

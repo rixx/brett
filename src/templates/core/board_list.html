@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Boards - brett{% endblock %}
+
+{% block header %}
+    <h1>Boards</h1>
+{% endblock %}
+
+{% block content %}
+<div class="board-list">
+    {% if boards %}
+    <ul>
+        {% for board in boards %}
+        <li>
+            <a href="{% url 'board_detail' slug=board.slug %}">
+                <h3>{{ board.name }}</h3>
+                {% if board.description %}
+                <p>{{ board.description }}</p>
+                {% endif %}
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>No boards found. Create one to get started.</p>
+    {% endif %}
+</div>
+{% endblock %}

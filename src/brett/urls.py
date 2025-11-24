@@ -3,8 +3,12 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path
 
+from brett.core import views
+
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("<slug:slug>/", views.board_detail, name="board_detail"),
+    path("", views.board_list, name="board_list"),
 ]
 
 if settings.DEBUG:

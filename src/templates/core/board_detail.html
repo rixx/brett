@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}{{ board.name }} - brett{% endblock %}
+
+{% block header %}<h1>{{ board.name }}</h1>{% endblock %}
+
+{% block content %}
+<div class="board-columns">
+    {% for column in columns %}
+    <div class="column" data-column-id="{{ column.id }}">
+        <div class="column-header">
+            <h3>{{ column.name }}</h3>
+            <span class="card-count">{{ column.cards.count }}</span>
+        </div>
+
+        <div class="cards">
+            {% for card in column.cards.all %}
+            <div class="card" data-card-id="{{ card.id }}">
+                <a href="#" class="card-link">
+                    <h4 class="card-title">{{ card.title }}</h4>
+                    <div class="card-meta">
+                        <span class="entry-count">{{ card.entry_count }} message{{ card.entry_count|pluralize }}</span>
+                        {% if card.last_update_date %}
+                        <span class="last-update">{{ card.last_update_date|naturaltime }}</span>
+                        {% endif %}
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="column-footer">
+            <button class="new-card-btn" data-column-id="{{ column.id }}">+ New Card</button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
