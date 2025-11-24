@@ -1,4 +1,3 @@
-from django.contrib import admin
 from django.contrib.admin.sites import AdminSite
 
 from brett.core.admin import (
