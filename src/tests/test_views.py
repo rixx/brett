@@ -641,7 +641,7 @@ def test_confirm_import_creates_entry(client, card):
 
     response = client.post(reverse("confirm_import", kwargs={"card_id": card.id}))
     assert response.status_code == 302
-    assert response.url == reverse("card_detail", kwargs={"card_id": card.id})
+    assert response.url.startswith(reverse("card_detail", kwargs={"card_id": card.id}))
 
     # Verify entry was created
     assert Entry.objects.filter(card=card).count() == initial_count + 1

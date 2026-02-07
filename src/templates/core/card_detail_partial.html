@@ -52,6 +52,10 @@
 
     <div class="card-actions">
         <a href="{% url 'import_email' %}?card_id={{ card.id }}" class="btn btn-primary">+ Add Entry</a>
+        {% if request.GET.from == "import" %}
+            <a href="{% url 'import_email' %}" class="btn btn-primary">+ Import Email</a>
+        {% endif %}
+
         <a href="{% url 'board_detail' board.slug %}" class="btn btn-secondary">← Back to Board</a>
     </div>
 

@@ -1,5 +1,5 @@
 from django.db.models import Q
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect, render, reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -365,7 +365,9 @@ def confirm_import(request, card_id):
         # Clear session
         del request.session["parsed_email"]
 
-        return redirect("card_detail", card_id=card.id)
+        return redirect(
+            reverse("card_detail", kwargs={"card_id": card.id}) + "?from=import"
+        )
 
     return render(request, "core/confirm_import.html", {"card": card, "parsed": parsed})
 
@@ -455,7 +457,9 @@ def confirm_import_new(request):
         # Clear session
         del request.session["parsed_email"]
 
-        return redirect("card_detail", card_id=card.id)
+        return redirect(
+            reverse("card_detail", kwargs={"card_id": card.id}) + "?from=import"
+        )
 
     board = Board.objects.first()
     columns = board.columns.all() if board else Column.objects.none()
