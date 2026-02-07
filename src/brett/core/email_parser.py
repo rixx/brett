@@ -72,9 +72,26 @@ def _extract_body_from_pgp_payload(msg):
                     inner_msg = email.message_from_string(payload_str)
                     for inner_part in inner_msg.walk():
                         if inner_part.get_content_type() == "text/plain":
-                            inner_body = inner_part.get_payload(decode=False)
-                            if isinstance(inner_body, str) and inner_body.strip():
-                                return inner_body
+                            cte = (
+                                inner_part.get("Content-Transfer-Encoding", "")
+                                .strip()
+                                .lower()
+                            )
+                            if cte in ("quoted-printable", "base64"):
+                                # Must decode transfer encoding; decode=True
+                                # goes via raw-unicode-escape which is fine
+                                # here because the payload is still encoded.
+                                charset = inner_part.get_content_charset() or "utf-8"
+                                inner_body = inner_part.get_payload(decode=True)
+                                if isinstance(inner_body, bytes) and inner_body.strip():
+                                    return inner_body.decode(charset, errors="replace")
+                            else:
+                                # No transfer encoding (7bit/8bit/binary) —
+                                # the string payload already has correct
+                                # Unicode from message_from_string.
+                                inner_body = inner_part.get_payload(decode=False)
+                                if isinstance(inner_body, str) and inner_body.strip():
+                                    return inner_body
                 except Exception:
                     pass
             # Fall back to bytes path for base64/QP-encoded payloads
@@ -86,7 +103,8 @@ def _extract_body_from_pgp_payload(msg):
                         if inner_part.get_content_type() == "text/plain":
                             inner_body = inner_part.get_payload(decode=True)
                             if inner_body:
-                                return inner_body.decode("utf-8", errors="ignore")
+                                charset = inner_part.get_content_charset() or "utf-8"
+                                return inner_body.decode(charset, errors="replace")
                 except Exception:
                     pass
     return None
@@ -110,6 +128,7 @@ def parse_raw_email(raw_message):
 
     # Parse From header
     from_name, from_addr = parseaddr(msg.get("From", ""))
+    from_name = _decode_rfc2047(from_name) if from_name else from_name
 
     # Parse Subject - handle potential duplicates from encryption
     subjects = msg.get_all("Subject", [])

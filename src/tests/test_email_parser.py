@@ -323,3 +323,55 @@ Body text."""
 
     result = parse_raw_email(raw_email)
     assert result["subject"] == "Real Subject"
+
+
+def test_parse_email_with_rfc2047_encoded_sender_name():
+    """Test that RFC 2047 encoded sender names are decoded."""
+    raw_email = """From: =?UTF-8?B?VGVzdCBVc2VyIHZpYSBUZXN0IE9yZyBEw7xzc2VsZG9yZg==?= =?UTF-8?B?IGUuVi4=?= <test@example.com>
+Subject: Test Subject
+Date: Tue, 8 Apr 2025 14:38:30 +0200
+Message-ID: <test-sender-decode@example.com>
+Content-Type: text/plain; charset=UTF-8
+
+Test body."""
+
+    result = parse_raw_email(raw_email)
+    assert result["from_name"] == "Test User via Test Org D\u00fcsseldorf e.V."
+    assert "=?UTF-8?" not in result["from_name"]
+
+
+def test_pgp_body_quoted_printable_iso8859():
+    """Test that QP-encoded iso-8859-1 bodies in PGP emails are decoded."""
+    raw_email = """From: test@example.com
+Subject: ...
+Date: Fri, 11 Apr 2025 11:47:31 +0200
+Message-ID: <test-qp-body@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/encrypted; protocol="application/pgp-encrypted";
+    boundary="testboundary"
+
+--testboundary
+Content-Type: application/pgp-encrypted
+Content-Disposition: attachment
+
+Version: 1
+
+--testboundary
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename="msg.asc"
+
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+Passt f=FCr mich auch so.
+
+Viele Gr=FC=DFe
+
+--testboundary--"""
+
+    result = parse_raw_email(raw_email)
+    assert "f\u00fcr" in result["body"]  # ü
+    assert "Gr\u00fc\u00dfe" in result["body"]  # üße
+    assert "=FC" not in result["body"]
+    assert "=DF" not in result["body"]
