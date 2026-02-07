@@ -31,20 +31,34 @@ def _decode_payload(part):
 
     For quoted-printable/base64, uses get_payload(decode=True) to decode the
     transfer encoding, then decodes the resulting bytes with the part's charset.
-    For 8bit/7bit/binary, the string payload from message_from_string already
-    contains correct Unicode, so we return it directly.
+    For 8bit/7bit/binary with non-UTF-8 charsets (e.g. windows-1252), re-encodes
+    the string via latin-1 to recover the original bytes, then decodes with the
+    declared charset.
     """
+    charset = part.get_content_charset() or "utf-8"
     cte = part.get("Content-Transfer-Encoding", "").strip().lower()
     if cte in ("quoted-printable", "base64"):
-        charset = part.get_content_charset() or "utf-8"
         payload = part.get_payload(decode=True)
         if isinstance(payload, bytes):
             return payload.decode(charset, errors="replace")
     payload = part.get_payload(decode=False)
     if isinstance(payload, str):
+        # For non-UTF-8 single-byte charsets (e.g. windows-1252), the string
+        # from message_from_string may contain raw byte values as code points
+        # (e.g. from a latin-1 read). Re-encode to bytes and decode with the
+        # declared charset to get correct characters.
+        if charset.lower().replace("-", "").replace("_", "") not in (
+            "utf8",
+            "ascii",
+            "usascii",
+        ):
+            try:
+                raw_bytes = payload.encode("latin-1")
+                return raw_bytes.decode(charset, errors="replace")
+            except UnicodeEncodeError:
+                pass
         return payload
     if isinstance(payload, bytes):
-        charset = part.get_content_charset() or "utf-8"
         return payload.decode(charset, errors="replace")
     return ""
 

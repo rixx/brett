@@ -119,3 +119,17 @@ def test_card_update_dates_from_entries_with_no_entries(column):
     # Dates should remain None
     assert card.start_date is None
     assert card.last_update_date is None
+
+
+def test_board_core_team_add_remove(board, correspondents):
+    """Test core_team M2M add and remove."""
+    assert board.core_team.count() == 0
+
+    board.core_team.add(correspondents[0], correspondents[1])
+    assert board.core_team.count() == 2
+    assert correspondents[0] in board.core_team.all()
+
+    board.core_team.remove(correspondents[0])
+    assert board.core_team.count() == 1
+    assert correspondents[0] not in board.core_team.all()
+    assert correspondents[1] in board.core_team.all()

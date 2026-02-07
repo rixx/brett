@@ -17,6 +17,20 @@ PGP_BLOCK_RE = re.compile(
 )
 
 
+def _read_email_file(path):
+    """Read an email file with proper encoding handling.
+
+    Tries UTF-8 first, falls back to latin-1 which maps every byte to the
+    same-numbered Unicode code point (preserving raw byte values for charsets
+    like windows-1252).
+    """
+    raw = path.read_bytes()
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw.decode("latin-1")
+
+
 class Command(BaseCommand):
     help = "Review a Maildir directory, skipping already-imported emails and copying new ones to clipboard for ingestion"
 
@@ -27,6 +41,79 @@ class Command(BaseCommand):
             help="Path to mail directory (e.g. ~/.local/share/mail/account/folder/cur/)",
         )
 
+    def unwrap_pgp_mime(self, content):
+        """If content is a decrypted multipart/encrypted email, unwrap the
+        encryption layer to produce a clean MIME message.
+
+        Returns (content, status) where status is:
+        - "unwrapped": PGP/MIME was successfully unwrapped
+        - "encrypted": PGP/MIME but decryption failed (still encrypted)
+        - None: not a PGP/MIME email
+        """
+        msg = email.message_from_string(content)
+        if msg.get_content_type() != "multipart/encrypted":
+            return content, None
+
+        # Find the application/octet-stream part with decrypted content
+        decrypted_payload = None
+        for part in msg.walk():
+            if part.get_content_type() == "application/octet-stream":
+                payload = part.get_payload(decode=False)
+                if isinstance(payload, str) and payload.strip():
+                    decrypted_payload = payload
+                    break
+
+        if decrypted_payload is None:
+            return content, "encrypted"
+
+        # Check if the payload is still encrypted
+        stripped_payload = decrypted_payload.strip()
+        if stripped_payload.startswith("-----BEGIN PGP"):
+            return content, "encrypted"
+
+        # Split original email into headers and body
+        header_end = content.find("\n\n")
+        if header_end == -1:
+            return content, "unwrapped"
+
+        # Filter out MIME content headers from original headers, keeping
+        # transport headers (From, Date, Subject, Message-ID, Received, etc.)
+        filtered_lines = []
+        skip_continuation = False
+        for line in content[:header_end].split("\n"):
+            if line and line[0] in (" ", "\t"):
+                if skip_continuation:
+                    continue
+                filtered_lines.append(line)
+                continue
+            skip_continuation = False
+            if ":" in line:
+                header_name = line.split(":")[0].strip().lower()
+                if header_name in (
+                    "content-type",
+                    "content-transfer-encoding",
+                    "content-disposition",
+                ):
+                    skip_continuation = True
+                    continue
+            filtered_lines.append(line)
+
+        # Build new email: filtered headers + decrypted MIME content
+        if stripped_payload.startswith("Content-Type:") or stripped_payload.startswith(
+            "MIME-Version:"
+        ):
+            # Decrypted content is MIME — join directly as additional headers
+            result = "\n".join(filtered_lines) + "\n" + stripped_payload
+        else:
+            # Decrypted content is plain text — add Content-Type and separator
+            result = (
+                "\n".join(filtered_lines)
+                + "\nContent-Type: text/plain; charset=UTF-8\n\n"
+                + stripped_payload
+            )
+
+        return result, "unwrapped"
+
     def strip_large_attachments(self, content, max_size=1_500_000):
         """Strip the largest non-text MIME attachments until content is under max_size."""
         if len(content) <= max_size:
@@ -34,6 +121,10 @@ class Command(BaseCommand):
 
         msg = email.message_from_string(content)
         if not msg.is_multipart():
+            return content
+        # Don't strip parts from encrypted emails — the octet-stream part
+        # contains the message body (encrypted or decrypted).
+        if msg.get_content_type() == "multipart/encrypted":
             return content
 
         while len(msg.as_string()) > max_size:
@@ -103,7 +194,7 @@ class Command(BaseCommand):
         header_parser = HeaderParser()
 
         def _date_key(path):
-            headers = header_parser.parsestr(path.read_text(errors="replace"))
+            headers = header_parser.parsestr(_read_email_file(path))
             try:
                 dt = parsedate_to_datetime(headers["Date"])
                 if dt.tzinfo is None:
@@ -132,7 +223,7 @@ class Command(BaseCommand):
             pass
 
         for mail_file in files:
-            content = mail_file.read_text(errors="replace")
+            content = _read_email_file(mail_file)
             headers = header_parser.parsestr(content)
 
             message_id = headers.get("Message-ID", "").strip()
@@ -158,7 +249,13 @@ class Command(BaseCommand):
             self.stdout.write(f"  Subject: {subject}")
             if PGP_BLOCK_RE.search(content):
                 content = self.decrypt_pgp_blocks(content)
-                self.stdout.write("  Decrypted PGP content.")
+                content, pgp_status = self.unwrap_pgp_mime(content)
+                if pgp_status == "encrypted":
+                    self.stdout.write(
+                        self.style.WARNING("  PGP encrypted (could not decrypt).")
+                    )
+                else:
+                    self.stdout.write("  Decrypted PGP content.")
             original_size = len(content)
             content = self.strip_large_attachments(content)
             if len(content) < original_size:

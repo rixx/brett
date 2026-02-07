@@ -453,3 +453,34 @@ Viele Gr\u00fc\u00dfe"""
     assert "daf\u00fcr" in result["body"]  # ü
     assert "Gr\u00fc\u00dfe" in result["body"]  # üße
     assert "\ufffd" not in result["body"]  # no replacement characters
+
+
+def test_single_part_8bit_windows1252_body():
+    """Test that 8bit windows-1252 bodies decode umlauts correctly.
+
+    When an email file is read with latin-1 fallback (because it's not valid
+    UTF-8), characters like \xe4 (latin-1 for a-umlaut) get passed through to
+    the parser. The parser must re-encode via latin-1 and decode with the
+    declared charset to produce correct Unicode.
+    """
+    # Simulate reading a windows-1252 email file via latin-1 fallback:
+    # the body bytes are latin-1 code points (same as windows-1252 for these chars)
+    raw_email = (
+        "From: test@example.com\r\n"
+        "Subject: Test\r\n"
+        "Date: Wed, 22 Oct 2025 18:27:38 +0200\r\n"
+        "Message-ID: <test-win1252@example.com>\r\n"
+        "Content-Type: text/plain; charset=windows-1252\r\n"
+        "Content-Transfer-Encoding: 8bit\r\n"
+        "\r\n"
+        "wegen meiner langj\xe4hrigen Funktion\r\n"
+        "M\xf6ge man geeignete Ma\xdfnahmen ergreifen.\r\n"
+        "Viele Gr\xfc\xdfe"
+    )
+
+    result = parse_raw_email(raw_email)
+    assert "langj\u00e4hrigen" in result["body"]  # ä
+    assert "M\u00f6ge" in result["body"]  # ö
+    assert "Ma\u00dfnahmen" in result["body"]  # ß
+    assert "Gr\u00fc\u00dfe" in result["body"]  # üße
+    assert "\ufffd" not in result["body"]  # no replacement characters
