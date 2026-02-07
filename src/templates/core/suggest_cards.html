@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Select Card - brett{% endblock %}
+
+{% block header %}<h1>Select Card</h1>{% endblock %}
+
+{% block content %}
+<div class="suggest-container">
+    <div class="email-preview">
+        <h2>Email to Import</h2>
+        <div class="email-info">
+            <div class="email-field">
+                <strong>From:</strong> {{ parsed.from_addr }}
+            </div>
+            <div class="email-field">
+                <strong>Subject:</strong> {{ parsed.subject }}
+            </div>
+            <div class="email-field">
+                <strong>Date:</strong> {{ parsed.date }}
+            </div>
+            {% if parsed.message_id %}
+            <div class="email-field">
+                <strong>Message-ID:</strong> <code>{{ parsed.message_id }}</code>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if candidates %}
+    <div class="card-suggestions">
+        <h2>Suggested Cards</h2>
+        <p>Select an existing card to add this email to:</p>
+
+        <div class="candidate-list">
+            {% for candidate in candidates %}
+            <div class="candidate-card">
+                <div class="candidate-header">
+                    <h3>{{ candidate.card.title }}</h3>
+                    <span class="candidate-reason">{{ candidate.reason }}</span>
+                </div>
+                <div class="candidate-preview">
+                    {{ candidate.preview|truncatewords:30 }}
+                </div>
+                <div class="candidate-meta">
+                    <span>{{ candidate.card.entry_count }} message{{ candidate.card.entry_count|pluralize }}</span>
+                    <span>Column: {{ candidate.card.column.name }}</span>
+                </div>
+                <form method="get" action="{% url 'confirm_import' candidate.card.id %}" class="candidate-action">
+                    <button type="submit" class="btn btn-primary btn-sm">Add to this card</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="create-new-section">
+        {% if candidates %}
+        <h2>Or Create New Card</h2>
+        {% else %}
+        <h2>Create New Card</h2>
+        <p>No related cards were found.</p>
+        {% endif %}
+        <p>Create a new card with this email as the first entry.</p>
+        <form method="get" action="{% url 'confirm_import_new' %}">
+            <button type="submit" class="btn btn-secondary">Create New Card</button>
+        </form>
+    </div>
+
+    <div class="import-actions">
+        <a href="{% url 'import_email' %}" class="btn btn-secondary">← Back</a>
+    </div>
+</div>
+{% endblock %}

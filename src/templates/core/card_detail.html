@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}{{ card.title }} - brett{% endblock %}
+
+{% block header %}
+<h1><a href="{% url 'board_detail' board.slug %}">{{ board.name }}</a></h1>
+{% endblock %}
+
+{% block content %}
+{% include "core/card_detail_partial.html" %}
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/htmx.min.js' %}"></script>
+<script src="{% static 'js/card-detail.js' %}"></script>
+{% endblock %}

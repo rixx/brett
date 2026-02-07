@@ -6,6 +6,7 @@
 {% block header %}<h1>{{ board.name }}</h1>{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="board-columns">
     {% for column in columns %}
     <div class="column" data-column-id="{{ column.id }}">
@@ -14,10 +15,10 @@
             <span class="card-count">{{ column.cards.count }}</span>
         </div>
 
-        <div class="cards">
+        <div class="cards drop-zone" id="cards-{{ column.id }}" data-column-id="{{ column.id }}">
             {% for card in column.cards.all %}
-            <div class="card" data-card-id="{{ card.id }}">
-                <a href="#" class="card-link">
+            <div class="card draggable" data-card-id="{{ card.id }}" draggable="true">
+                <a href="{% url 'card_detail' card.id %}" class="card-link card-open-dialog">
                     <h4 class="card-title">{{ card.title }}</h4>
                     <div class="card-meta">
                         <span class="entry-count">{{ card.entry_count }} message{{ card.entry_count|pluralize }}</span>
@@ -30,10 +31,29 @@
             {% endfor %}
         </div>
 
-        <div class="column-footer">
-            <button class="new-card-btn" data-column-id="{{ column.id }}">+ New Card</button>
+        <div class="column-footer" id="column-footer-{{ column.id }}">
+            <button
+                class="new-card-btn"
+                hx-get="{% url 'add_card' column.id %}"
+                hx-target="#column-footer-{{ column.id }}"
+                hx-swap="innerHTML"
+            >+ New Card</button>
         </div>
     </div>
     {% endfor %}
 </div>
+
+<dialog id="card-dialog">
+    <div class="dialog-header">
+        <a href="#" class="permalink" id="card-permalink">Permalink</a>
+        <button class="dialog-close" id="close-dialog-btn">×</button>
+    </div>
+    <div id="card-dialog-content"></div>
+</dialog>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}
+<script src="{% static 'js/htmx.min.js' %}"></script>
+<script src="{% static 'js/board-detail.js' %}"></script>
 {% endblock %}

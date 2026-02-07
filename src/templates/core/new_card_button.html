@@ -1,0 +1,6 @@
+<button
+    class="new-card-btn"
+    hx-get="{% url 'add_card' column.id %}"
+    hx-target="#column-footer-{{ column.id }}"
+    hx-swap="innerHTML"
+>+ New Card</button>

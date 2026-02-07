@@ -1,0 +1,104 @@
+{% load humanize %}
+
+<div class="card-detail">
+    <div class="card-header">
+        <div class="card-title-section">
+            <h2
+                id="card-title"
+                class="editable-title"
+                hx-get="{% url 'card_edit_title' card.id %}"
+                hx-trigger="click"
+                hx-target="#card-title"
+                hx-swap="outerHTML"
+            >
+                {{ card.title }}
+            </h2>
+        </div>
+
+        <div class="card-metadata">
+            <div class="metadata-item">
+                <label>Column:</label>
+                <span>{{ card.column.name }}</span>
+            </div>
+            {% if card.description %}
+            <div class="metadata-item">
+                <label>Description:</label>
+                <p
+                    id="card-description"
+                    class="editable-description"
+                    hx-get="{% url 'card_edit_description' card.id %}"
+                    hx-trigger="click"
+                    hx-target="#card-description"
+                    hx-swap="outerHTML"
+                >
+                    {{ card.description }}
+                </p>
+            </div>
+            {% endif %}
+            {% if card.start_date %}
+            <div class="metadata-item">
+                <label>Started:</label>
+                <span>{{ card.start_date|naturalday }} ({{ card.start_date|naturaltime }})</span>
+            </div>
+            {% endif %}
+            {% if card.last_update_date %}
+            <div class="metadata-item">
+                <label>Last updated:</label>
+                <span>{{ card.last_update_date|naturalday }} ({{ card.last_update_date|naturaltime }})</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card-actions">
+        <a href="{% url 'import_email' %}?card_id={{ card.id }}" class="btn btn-primary">+ Add Entry</a>
+        <a href="{% url 'board_detail' board.slug %}" class="btn btn-secondary">← Back to Board</a>
+    </div>
+
+    <div class="entries">
+        <h3>Entries ({{ entries.count }})</h3>
+
+        {% if entries %}
+        <div class="entry-list">
+            {% for entry in entries %}
+            <div class="entry" data-entry-id="{{ entry.id }}">
+                <div class="entry-header entry-toggle">
+                    <div class="entry-meta">
+                        <span class="entry-date">{{ entry.date|date:"Y-m-d H:i" }}</span>
+                        <span class="entry-author">
+                            {% if entry.sender %}{{ entry.sender.name|default:entry.sender.email }}{% else %}{{ entry.from_addr }}{% endif %}
+                        </span>
+                        {% if entry.message_id %}
+                        <button
+                            class="copy-message-id"
+                            data-message-id="{{ entry.message_id }}"
+                            title="Copy message ID"
+                        >
+                            📋
+                        </button>
+                        {% endif %}
+                    </div>
+                    <div class="entry-summary">{{ entry.summary }}</div>
+                </div>
+
+                <div class="entry-body" id="entry-body-{{ entry.id }}" style="display: none;">
+                    <div class="entry-subject">
+                        <strong>Subject:</strong> {{ entry.subject }}
+                    </div>
+                    {% if entry.message_id %}
+                    <div class="entry-message-id">
+                        <strong>Message-ID:</strong> <code>{{ entry.message_id }}</code>
+                    </div>
+                    {% endif %}
+                    <div class="entry-content">
+                        {{ entry.body|linebreaksbr }}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="no-entries">No entries yet. <a href="#">Add the first entry</a>.</p>
+        {% endif %}
+    </div>
+</div>

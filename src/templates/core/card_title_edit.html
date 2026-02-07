@@ -1,0 +1,24 @@
+<form
+    id="card-title"
+    hx-post="{% url 'card_edit_title' card.id %}"
+    hx-target="#card-title"
+    hx-swap="outerHTML"
+>
+    {% csrf_token %}
+    <input
+        type="text"
+        name="title"
+        value="{{ card.title }}"
+        class="title-edit-input"
+        autofocus
+    >
+    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+    <button
+        type="button"
+        class="btn btn-secondary btn-sm"
+        hx-get="{% url 'card_detail' card.id %}"
+        hx-target="#card-title"
+        hx-swap="outerHTML"
+        hx-select="#card-title"
+    >Cancel</button>
+</form>

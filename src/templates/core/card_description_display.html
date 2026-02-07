@@ -1,0 +1,10 @@
+<p
+    id="card-description"
+    class="editable-description"
+    hx-get="{% url 'card_edit_description' card.id %}"
+    hx-trigger="click"
+    hx-target="#card-description"
+    hx-swap="outerHTML"
+>
+    {{ card.description }}
+</p>

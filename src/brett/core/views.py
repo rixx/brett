@@ -1,6 +1,10 @@
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
-from .models import Board
+from .email_parser import parse_raw_email
+from .models import Board, Card, Column, Correspondent, Entry
 
 
 def board_list(request):
@@ -17,4 +21,442 @@ def board_detail(request, slug):
         request,
         "core/board_detail.html",
         {"board": board, "columns": columns},
+    )
+
+
+def card_detail(request, card_id):
+    card = get_object_or_404(Card.objects.select_related("column__board"), pk=card_id)
+    entries = card.entries.select_related("sender").all()
+
+    # Check if this is an HTMX request
+    is_htmx = request.headers.get("HX-Request") == "true"
+
+    template = "core/card_detail_partial.html" if is_htmx else "core/card_detail.html"
+
+    return render(
+        request,
+        template,
+        {"card": card, "entries": entries, "board": card.column.board},
+    )
+
+
+def card_edit_title(request, card_id):
+    card = get_object_or_404(Card, pk=card_id)
+
+    if request.method == "POST":
+        new_title = request.POST.get("title", "").strip()
+        if new_title:
+            card.title = new_title
+            card.save()
+            return render(
+                request,
+                "core/card_title_display.html",
+                {"card": card},
+            )
+
+    return render(request, "core/card_title_edit.html", {"card": card})
+
+
+def card_edit_description(request, card_id):
+    card = get_object_or_404(Card, pk=card_id)
+
+    if request.method == "POST":
+        new_description = request.POST.get("description", "").strip()
+        card.description = new_description
+        card.save()
+        return render(
+            request,
+            "core/card_description_display.html",
+            {"card": card},
+        )
+
+    return render(request, "core/card_description_edit.html", {"card": card})
+
+
+def add_card(request, column_id):
+    column = get_object_or_404(Column, pk=column_id)
+
+    if request.method == "POST":
+        title = request.POST.get("title", "").strip()
+        description = request.POST.get("description", "").strip()
+
+        if title:
+            card = Card.objects.create(
+                column=column,
+                title=title,
+                description=description,
+            )
+            # Return the new card HTML and reset the button using OOB swap
+            return render(
+                request,
+                "core/add_card_success.html",
+                {"card": card, "column": column},
+            )
+
+    # Show the form
+    return render(request, "core/add_card_form.html", {"column": column})
+
+
+def cancel_add_card(request, column_id):
+    column = get_object_or_404(Column, pk=column_id)
+    return render(request, "core/new_card_button.html", {"column": column})
+
+
+def move_card(request, card_id):
+    if request.method != "POST":
+        return render(
+            request, "core/error.html", {"error": "Method not allowed"}, status=405
+        )
+
+    card = get_object_or_404(Card, pk=card_id)
+    column_id = request.POST.get("column_id")
+
+    if not column_id:
+        return render(
+            request, "core/error.html", {"error": "column_id required"}, status=400
+        )
+
+    new_column = get_object_or_404(Column, pk=column_id)
+
+    # Update the card's column (dates are based on entries, not user actions)
+    card.column = new_column
+    card.save()
+
+    # Return success response
+    return render(request, "core/move_success.html", {"card": card})
+
+
+def import_email(request):
+    """Import an email - step 1: paste raw email."""
+    card_id = request.GET.get("card_id")
+    new_card = request.GET.get("new_card")
+
+    if request.method == "POST":
+        raw_message = request.POST.get("raw_message", "").strip()
+
+        if not raw_message:
+            return render(
+                request,
+                "core/import_email.html",
+                {"error": "Please paste an email message"},
+            )
+
+        # Parse the email
+        try:
+            parsed = parse_raw_email(raw_message)
+        except Exception as e:
+            import traceback
+
+            error_detail = f"Failed to parse email: {str(e)}\n{traceback.format_exc()}"
+            return render(
+                request,
+                "core/import_email.html",
+                {"error": error_detail},
+            )
+
+        # Convert date to string for session storage
+        if parsed.get("date"):
+            parsed["date"] = parsed["date"].isoformat()
+
+        # Store parsed data in session for next step
+        request.session["parsed_email"] = parsed
+
+        # If card_id or new_card specified, skip suggestion step
+        if card_id:
+            return redirect("confirm_import", card_id=card_id)
+        elif new_card:
+            return redirect("confirm_import_new")
+
+        # Otherwise, show card suggestions
+        return redirect("suggest_cards")
+
+    return render(
+        request,
+        "core/import_email.html",
+        {"card_id": card_id, "new_card": new_card},
+    )
+
+
+def suggest_cards(request):
+    """Import an email - step 2: suggest matching cards."""
+    parsed = request.session.get("parsed_email")
+    if not parsed:
+        return redirect("import_email")
+
+    candidates = []
+    seen_cards = set()
+
+    # First, try to find card by in-reply-to message ID
+    if parsed.get("in_reply_to"):
+        in_reply_to = parsed["in_reply_to"].strip("<>")
+        # Match both with and without angle brackets
+        matching_entries = Entry.objects.filter(
+            Q(message_id=in_reply_to) | Q(message_id=f"<{in_reply_to}>")
+        ).select_related("card")
+        for entry in matching_entries:
+            if entry.card.id not in seen_cards:
+                seen_cards.add(entry.card.id)
+                candidates.append(
+                    {
+                        "card": entry.card,
+                        "reason": f"Reply to: {entry.subject[:50]}",
+                        "preview": entry.body[:200],
+                    }
+                )
+
+    # Then, try to find cards by similar subject
+    if parsed.get("subject"):
+        subject = parsed["subject"]
+        # Extract subject without Re:, Fwd:, etc. and normalize whitespace
+        clean_subject = subject
+        for prefix in ["Re:", "RE:", "re:", "Fwd:", "FWD:", "fwd:", "Fw:", "FW:"]:
+            clean_subject = clean_subject.replace(prefix, "").strip()
+        clean_subject = " ".join(clean_subject.split())  # Normalize whitespace
+
+        if clean_subject:
+            # Strategy 1: Exact match on card title (case insensitive)
+            exact_matches = Card.objects.filter(title__iexact=clean_subject)
+            for card in exact_matches:
+                if card.id not in seen_cards:
+                    seen_cards.add(card.id)
+                    first_entry = card.entries.first()
+                    candidates.append(
+                        {
+                            "card": card,
+                            "reason": "Exact subject match",
+                            "preview": first_entry.body[:200] if first_entry else "",
+                        }
+                    )
+
+            # Strategy 2: Card title contains email subject OR email subject contains card title
+            all_cards = Card.objects.prefetch_related("entries").all()
+            for card in all_cards:
+                if card.id in seen_cards:
+                    continue
+
+                card_title_clean = " ".join(card.title.split()).lower()
+                clean_subject_lower = clean_subject.lower()
+
+                # Bidirectional matching
+                if (
+                    card_title_clean in clean_subject_lower
+                    or clean_subject_lower in card_title_clean
+                ):
+                    seen_cards.add(card.id)
+                    first_entry = card.entries.first()
+                    candidates.append(
+                        {
+                            "card": card,
+                            "reason": "Similar subject",
+                            "preview": first_entry.body[:200] if first_entry else "",
+                        }
+                    )
+                    if len(candidates) >= 10:  # Don't check too many
+                        break
+
+            # Strategy 3: Match against entry subjects
+            matching_entries = Entry.objects.filter(
+                Q(subject__icontains=clean_subject)
+            ).select_related("card")
+
+            for entry in matching_entries[:10]:  # Limit to 10 entries
+                if entry.card.id not in seen_cards:
+                    seen_cards.add(entry.card.id)
+                    candidates.append(
+                        {
+                            "card": entry.card,
+                            "reason": f"Previous entry: {entry.subject[:50]}",
+                            "preview": entry.body[:200],
+                        }
+                    )
+
+    return render(
+        request,
+        "core/suggest_cards.html",
+        {
+            "parsed": parsed,
+            "candidates": candidates[:8],  # Limit to 8 suggestions
+        },
+    )
+
+
+def _get_or_create_correspondent(board, email_addr, name=None):
+    """Get or create a Correspondent for the given email address."""
+    if not email_addr:
+        return None
+
+    # First, try to find by primary email
+    correspondent = Correspondent.objects.filter(board=board, email=email_addr).first()
+
+    if correspondent:
+        # Update name if we have one and correspondent doesn't
+        if name and not correspondent.name:
+            correspondent.name = name
+            correspondent.save()
+        return correspondent
+
+    # Check if email exists in aliases (manually since SQLite doesn't support JSON contains)
+    for corr in Correspondent.objects.filter(board=board):
+        if corr.aliases and email_addr in corr.aliases:
+            return corr
+
+    # Create new correspondent
+    correspondent = Correspondent.objects.create(
+        board=board, email=email_addr, name=name or "", aliases=[]
+    )
+    return correspondent
+
+
+def confirm_import(request, card_id):
+    """Import an email - step 3: confirm and create entry for existing card."""
+    parsed = request.session.get("parsed_email")
+    if not parsed:
+        return redirect("import_email")
+
+    card = get_object_or_404(Card, pk=card_id)
+
+    if request.method == "POST":
+        # Check for duplicate message-ID
+        message_id = parsed.get("message_id", "")
+        if message_id:
+            existing_entry = Entry.objects.filter(message_id=message_id).first()
+            if existing_entry:
+                return render(
+                    request,
+                    "core/confirm_import.html",
+                    {
+                        "card": card,
+                        "parsed": parsed,
+                        "error": f"This email has already been imported to card '{existing_entry.card.title}'",
+                    },
+                )
+
+        # Parse date if it's a string
+        email_date = parsed.get("date")
+        if isinstance(email_date, str):
+            email_date = parse_datetime(email_date)
+        if not email_date:
+            email_date = timezone.now()
+
+        # Get or create correspondent
+        board = card.column.board
+        correspondent = _get_or_create_correspondent(
+            board, parsed.get("from_addr", ""), parsed.get("from_name")
+        )
+
+        # Create the entry
+        Entry.objects.create(
+            card=card,
+            sender=correspondent,
+            from_addr=parsed.get("from_addr", ""),
+            subject=parsed.get("subject", ""),
+            message_id=parsed.get("message_id", ""),
+            date=email_date,
+            body=parsed.get("body", ""),
+            raw_message=parsed.get("raw_message", ""),
+            summary=request.POST.get("summary", "").strip(),
+        )
+
+        # Update card dates based on all entries
+        card.update_dates_from_entries()
+
+        # Clear session
+        del request.session["parsed_email"]
+
+        return redirect("card_detail", card_id=card.id)
+
+    return render(request, "core/confirm_import.html", {"card": card, "parsed": parsed})
+
+
+def confirm_import_new(request):
+    """Import an email - step 3: confirm and create entry for new card."""
+    parsed = request.session.get("parsed_email")
+    if not parsed:
+        return redirect("import_email")
+
+    if request.method == "POST":
+        # Check for duplicate message-ID
+        message_id = parsed.get("message_id", "")
+        if message_id:
+            existing_entry = Entry.objects.filter(message_id=message_id).first()
+            if existing_entry:
+                board = Board.objects.first()
+                columns = board.columns.all() if board else Column.objects.none()
+                return render(
+                    request,
+                    "core/confirm_import_new.html",
+                    {
+                        "parsed": parsed,
+                        "columns": columns,
+                        "error": f"This email has already been imported to card '{existing_entry.card.title}'",
+                    },
+                )
+
+        # Get the board and column
+        board = Board.objects.first()
+        if not board:
+            return render(
+                request,
+                "core/error.html",
+                {"error": "No board found. Please create a board first."},
+            )
+
+        column_id = request.POST.get("column_id")
+        if column_id:
+            column = get_object_or_404(Column, pk=column_id, board=board)
+        else:
+            column = board.columns.first()
+
+        if not column:
+            return render(
+                request,
+                "core/error.html",
+                {"error": "No column found. Please create a column first."},
+            )
+
+        # Parse date if it's a string
+        email_date = parsed.get("date")
+        if isinstance(email_date, str):
+            email_date = parse_datetime(email_date)
+        if not email_date:
+            email_date = timezone.now()
+
+        # Get or create correspondent
+        correspondent = _get_or_create_correspondent(
+            board, parsed.get("from_addr", ""), parsed.get("from_name")
+        )
+
+        # Create new card with subject as title
+        card = Card.objects.create(
+            column=column,
+            title=parsed.get("subject", "Untitled"),
+        )
+
+        # Create the entry
+        Entry.objects.create(
+            card=card,
+            sender=correspondent,
+            from_addr=parsed.get("from_addr", ""),
+            subject=parsed.get("subject", ""),
+            message_id=parsed.get("message_id", ""),
+            date=email_date,
+            body=parsed.get("body", ""),
+            raw_message=parsed.get("raw_message", ""),
+            summary=request.POST.get("summary", "").strip(),
+        )
+
+        # Update card dates based on entries
+        card.update_dates_from_entries()
+
+        # Clear session
+        del request.session["parsed_email"]
+
+        return redirect("card_detail", card_id=card.id)
+
+    board = Board.objects.first()
+    columns = board.columns.all() if board else Column.objects.none()
+    return render(
+        request,
+        "core/confirm_import_new.html",
+        {"parsed": parsed, "columns": columns},
     )

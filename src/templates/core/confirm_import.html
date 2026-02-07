@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Confirm Import - brett{% endblock %}
+
+{% block header %}<h1>Confirm Import</h1>{% endblock %}
+
+{% block content %}
+<div class="confirm-container">
+    <h2>Add Email to Card</h2>
+
+    {% if error %}
+    <div class="message message-danger">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <div class="card-info">
+        <h3>Target Card</h3>
+        <div class="card-preview">
+            <h4>{{ card.title }}</h4>
+            <p>{{ card.description }}</p>
+            <div class="card-stats">
+                <span>{{ card.entry_count }} existing message{{ card.entry_count|pluralize }}</span>
+                <span>Column: {{ card.column.name }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="email-info">
+        <h3>Email to Add</h3>
+        <div class="email-field">
+            <strong>From:</strong> {{ parsed.from_addr }}
+        </div>
+        <div class="email-field">
+            <strong>Subject:</strong> {{ parsed.subject }}
+        </div>
+        <div class="email-field">
+            <strong>Date:</strong> {{ parsed.date|date:"Y-m-d H:i" }}
+        </div>
+        <div class="email-field">
+            <strong>Body Preview:</strong>
+            <div class="body-preview">{{ parsed.body|truncatewords:50 }}</div>
+        </div>
+    </div>
+
+    <form method="post" class="confirm-form">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="summary">Summary (optional)</label>
+            <input
+                type="text"
+                id="summary"
+                name="summary"
+                class="form-input"
+                placeholder="e.g., '+1', 'questions', 'approved'"
+                maxlength="200"
+            >
+            <small style="color: #666;">Very short summary of this entry (optional)</small>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Confirm and Import</button>
+            <a href="{% url 'suggest_cards' %}" class="btn btn-secondary">← Back</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

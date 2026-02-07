@@ -1,0 +1,12 @@
+{% load humanize %}
+<div class="card draggable" data-card-id="{{ card.id }}" draggable="true">
+    <a href="{% url 'card_detail' card.id %}" class="card-link card-open-dialog">
+        <h4 class="card-title">{{ card.title }}</h4>
+        <div class="card-meta">
+            <span class="entry-count">{{ card.entry_count }} message{{ card.entry_count|pluralize }}</span>
+            {% if card.last_update_date %}
+            <span class="last-update">{{ card.last_update_date|naturaltime }}</span>
+            {% endif %}
+        </div>
+    </a>
+</div>

@@ -1,0 +1,23 @@
+<form
+    id="card-description"
+    hx-post="{% url 'card_edit_description' card.id %}"
+    hx-target="#card-description"
+    hx-swap="outerHTML"
+>
+    {% csrf_token %}
+    <textarea
+        name="description"
+        class="description-edit-textarea"
+        rows="4"
+        autofocus
+    >{{ card.description }}</textarea>
+    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+    <button
+        type="button"
+        class="btn btn-secondary btn-sm"
+        hx-get="{% url 'card_detail' card.id %}"
+        hx-target="#card-description"
+        hx-swap="outerHTML"
+        hx-select="#card-description"
+    >Cancel</button>
+</form>

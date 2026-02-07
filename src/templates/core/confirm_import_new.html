@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Create New Card - brett{% endblock %}
+
+{% block header %}<h1>Create New Card</h1>{% endblock %}
+
+{% block content %}
+<div class="confirm-container">
+    <h2>Create New Card with Email</h2>
+
+    {% if error %}
+    <div class="message message-danger">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <div class="email-info">
+        <h3>Email Details</h3>
+        <div class="email-field">
+            <strong>From:</strong> {{ parsed.from_addr }}
+        </div>
+        <div class="email-field">
+            <strong>Subject (will be card title):</strong> {{ parsed.subject }}
+        </div>
+        <div class="email-field">
+            <strong>Date:</strong> {{ parsed.date|date:"Y-m-d H:i" }}
+        </div>
+        <div class="email-field">
+            <strong>Body Preview:</strong>
+            <div class="body-preview">{{ parsed.body|truncatewords:50 }}</div>
+        </div>
+    </div>
+
+    <div class="info-message">
+        <p>A new card will be created with the email subject as the title, and this email will be added as the first entry.</p>
+    </div>
+
+    <form method="post" class="confirm-form">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="summary">Summary (optional)</label>
+            <input
+                type="text"
+                id="summary"
+                name="summary"
+                class="form-input"
+                placeholder="e.g., '+1', 'questions', 'approved'"
+                maxlength="200"
+            >
+            <small style="color: #666;">Very short summary of this entry (optional)</small>
+        </div>
+        <div class="form-group">
+            <label for="column">Column</label>
+            <select id="column" name="column_id" class="form-input">
+                {% for column in columns %}
+                <option value="{{ column.id }}">{{ column.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Create Card and Import</button>
+            <a href="{% url 'suggest_cards' %}" class="btn btn-secondary">← Back</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

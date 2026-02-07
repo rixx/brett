@@ -10,9 +10,14 @@
 </head>
 <body>
     <header>
-        {% block header %}
-        <h1><a href="/">brett</a></h1>
-        {% endblock %}
+        <div class="header-content">
+            {% block header %}
+            <h1><a href="/">brett</a></h1>
+            {% endblock %}
+            <nav>
+                <a href="{% url 'import_email' %}" class="nav-link">+ Import Email</a>
+            </nav>
+        </div>
     </header>
 
     <main>
