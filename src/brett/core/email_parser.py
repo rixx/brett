@@ -180,6 +180,10 @@ def parse_raw_email(raw_message):
     # Parse In-Reply-To
     in_reply_to = msg.get("In-Reply-To", "")
 
+    # Parse References header (space-separated list of message IDs)
+    references_raw = msg.get("References", "")
+    references = re.findall(r"<[^>]+>", references_raw) if references_raw else []
+
     # Extract body
     body = ""
     if msg.is_multipart():
@@ -208,6 +212,7 @@ def parse_raw_email(raw_message):
         "message_id": message_id,
         "date": date,
         "in_reply_to": in_reply_to,
+        "references": references,
         "body": body.strip() if body else "",
         "raw_message": raw_message,
     }

@@ -181,6 +181,51 @@ def import_email(request):
     )
 
 
+def _clean_subject_for_matching(subject):
+    """Strip email prefixes and spam-filter markers from a subject for matching."""
+    clean = subject
+    # Strip Re:/Fwd: prefixes
+    for prefix in ["Re:", "RE:", "re:", "Fwd:", "FWD:", "fwd:", "Fw:", "FW:"]:
+        clean = clean.replace(prefix, "").strip()
+    # Strip spam-filter markers like ***UNCHECKED***, ***SPAM***, [EXTERNAL], etc.
+    clean = re.sub(r"\*{2,3}[A-Z]+\*{2,3}", "", clean)
+    clean = re.sub(
+        r"\[(?:SPAM|EXTERNAL|BULK|SUSPECT|QUARANTINE|UNCHECKED)\]",
+        "",
+        clean,
+        flags=re.IGNORECASE,
+    )
+    # Normalize whitespace
+    clean = " ".join(clean.split())
+    return clean
+
+
+def _find_cards_by_message_ids(
+    message_ids, seen_cards, reason_prefix="Thread reference"
+):
+    """Look up entries by a list of message IDs and return candidates."""
+    if not message_ids:
+        return []
+    # Build query for all message IDs (with and without angle brackets)
+    q = Q()
+    for mid in message_ids:
+        mid_stripped = mid.strip("<>")
+        q |= Q(message_id=mid_stripped) | Q(message_id=f"<{mid_stripped}>")
+    matching_entries = Entry.objects.filter(q).select_related("card")
+    candidates = []
+    for entry in matching_entries:
+        if entry.card.id not in seen_cards:
+            seen_cards.add(entry.card.id)
+            candidates.append(
+                {
+                    "card": entry.card,
+                    "reason": f"{reason_prefix}: {entry.subject[:50]}",
+                    "preview": entry.body[:200],
+                }
+            )
+    return candidates
+
+
 def suggest_cards(request):
     """Import an email - step 2: suggest matching cards."""
     parsed = request.session.get("parsed_email")
@@ -192,21 +237,19 @@ def suggest_cards(request):
 
     # First, try to find card by in-reply-to message ID
     if parsed.get("in_reply_to"):
-        in_reply_to = parsed["in_reply_to"].strip("<>")
-        # Match both with and without angle brackets
-        matching_entries = Entry.objects.filter(
-            Q(message_id=in_reply_to) | Q(message_id=f"<{in_reply_to}>")
-        ).select_related("card")
-        for entry in matching_entries:
-            if entry.card.id not in seen_cards:
-                seen_cards.add(entry.card.id)
-                candidates.append(
-                    {
-                        "card": entry.card,
-                        "reason": f"Reply to: {entry.subject[:50]}",
-                        "preview": entry.body[:200],
-                    }
-                )
+        candidates.extend(
+            _find_cards_by_message_ids(
+                [parsed["in_reply_to"]], seen_cards, reason_prefix="Reply to"
+            )
+        )
+
+    # Also check References header for thread message IDs
+    if parsed.get("references"):
+        candidates.extend(
+            _find_cards_by_message_ids(
+                parsed["references"], seen_cards, reason_prefix="Thread reference"
+            )
+        )
 
     # Then, try to find cards by similar subject
     if parsed.get("subject"):
