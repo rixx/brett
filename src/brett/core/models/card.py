@@ -21,3 +21,14 @@ class Card(BrettModel):
     @property
     def entry_count(self):
         return self.entries.count()
+
+    def update_dates_from_entries(self):
+        """Update start_date and last_update_date based on entries."""
+        entries = self.entries.all()
+        if entries.exists():
+            # Get earliest and latest entry dates
+            earliest = entries.order_by("date").first()
+            latest = entries.order_by("-date").first()
+            self.start_date = earliest.date
+            self.last_update_date = latest.date
+            self.save()

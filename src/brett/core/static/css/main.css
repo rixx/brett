@@ -27,6 +27,16 @@ header {
     margin-bottom: 2rem;
 }
 
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header h1 {
+    margin: 0;
+}
+
 header h1 a {
     color: #333;
     font-size: 1.5rem;
@@ -36,6 +46,25 @@ header h1 a {
 header h1 a:hover {
     text-decoration: none;
     color: #0066cc;
+}
+
+header nav {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.nav-link {
+    color: #0066cc;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.nav-link:hover {
+    background-color: #f0f7ff;
+    text-decoration: none;
 }
 
 main {
@@ -183,6 +212,17 @@ main {
     transform: translateY(-2px);
 }
 
+.card.dragging {
+    opacity: 0.5;
+    cursor: move;
+}
+
+.drop-zone.drag-over {
+    background-color: #e3f2fd;
+    border: 2px dashed #0066cc;
+    border-radius: 8px;
+}
+
 .card-link {
     display: block;
     padding: 1rem;
@@ -236,4 +276,473 @@ main {
     background-color: #fff;
     border-color: #0066cc;
     color: #0066cc;
+}
+
+/* Add Card Form */
+.add-card-form {
+    background-color: #fff;
+    border: 2px solid #0066cc;
+    border-radius: 6px;
+    padding: 1rem;
+}
+
+.form-group {
+    margin-bottom: 0.75rem;
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    font-family: inherit;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #0066cc;
+}
+
+.form-textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.form-textarea:focus {
+    outline: none;
+    border-color: #0066cc;
+}
+
+.form-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+/* Card Detail View */
+.card-detail {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.card-header {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.card-title-section {
+    margin-bottom: 1.5rem;
+}
+
+.editable-title {
+    cursor: pointer;
+    border-bottom: 2px dashed transparent;
+    transition: border-color 0.2s;
+}
+
+.editable-title:hover {
+    border-bottom-color: #0066cc;
+}
+
+.title-edit-input {
+    width: 100%;
+    font-size: 1.5rem;
+    font-weight: 600;
+    padding: 0.5rem;
+    border: 2px solid #0066cc;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+}
+
+.card-metadata {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.metadata-item {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.metadata-item label {
+    font-weight: 600;
+    color: #666;
+    min-width: 120px;
+}
+
+.editable-description {
+    cursor: pointer;
+    border: 1px dashed transparent;
+    padding: 0.25rem;
+    transition: border-color 0.2s;
+    margin: 0;
+}
+
+.editable-description:hover {
+    border-color: #0066cc;
+}
+
+.description-edit-textarea {
+    width: 100%;
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 0.5rem;
+    border: 2px solid #0066cc;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+}
+
+.card-actions {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background-color: #0066cc;
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background-color: #0052a3;
+    text-decoration: none;
+}
+
+.btn-secondary {
+    background-color: #fff;
+    color: #0066cc;
+    border: 2px solid #0066cc;
+}
+
+.btn-secondary:hover {
+    background-color: #f0f7ff;
+    text-decoration: none;
+}
+
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+}
+
+.entries {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 2rem;
+}
+
+.entries h3 {
+    margin-bottom: 1.5rem;
+    font-size: 1.3rem;
+}
+
+.entry-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.entry {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.entry-header {
+    padding: 1rem;
+    cursor: pointer;
+    background-color: #f8f9fa;
+    transition: background-color 0.2s;
+}
+
+.entry-header:hover {
+    background-color: #e9ecef;
+}
+
+.entry-meta {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.entry-date {
+    font-weight: 600;
+    color: #666;
+}
+
+.entry-author {
+    color: #0066cc;
+    font-weight: 500;
+}
+
+.copy-message-id {
+    background-color: transparent;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+
+.copy-message-id:hover {
+    background-color: #e9ecef;
+    border-color: #0066cc;
+}
+
+.copy-message-id.copied {
+    background-color: #e8f5e9;
+    border-color: #4caf50;
+}
+
+.entry-summary {
+    color: #333;
+    font-size: 0.95rem;
+}
+
+.entry-body {
+    padding: 1rem;
+    background-color: #fff;
+    border-top: 1px solid #e0e0e0;
+}
+
+.entry-subject {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.entry-message-id {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 0.875rem;
+}
+
+.entry-message-id code {
+    background-color: #f5f5f5;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+.entry-content {
+    color: #333;
+    line-height: 1.8;
+}
+
+.no-entries {
+    color: #666;
+    font-style: italic;
+}
+
+/* Dialog styles for card detail in board view */
+dialog {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    max-width: 900px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 0;
+}
+
+dialog::backdrop {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+dialog .card-detail {
+    padding: 2rem;
+}
+
+.dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #e0e0e0;
+    background-color: #f8f9fa;
+}
+
+.dialog-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+    padding: 0.25rem 0.5rem;
+}
+
+.dialog-close:hover {
+    color: #333;
+}
+
+.permalink {
+    font-size: 0.875rem;
+    color: #666;
+}
+
+/* Import Email Styles */
+.import-container,
+.suggest-container,
+.confirm-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.import-form,
+.confirm-form {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 2rem;
+}
+
+.email-preview,
+.card-suggestions,
+.create-new-section,
+.card-info,
+.email-info {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.email-field {
+    margin-bottom: 0.75rem;
+    line-height: 1.6;
+}
+
+.email-field strong {
+    color: #666;
+    margin-right: 0.5rem;
+}
+
+.email-field code {
+    background-color: #f5f5f5;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+.body-preview {
+    margin-top: 0.5rem;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-left: 3px solid #0066cc;
+    font-style: italic;
+    color: #666;
+}
+
+.candidate-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.candidate-card {
+    background-color: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 1.5rem;
+}
+
+.candidate-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.candidate-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.candidate-reason {
+    font-size: 0.875rem;
+    color: #0066cc;
+    font-weight: 500;
+}
+
+.candidate-preview {
+    color: #666;
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+}
+
+.candidate-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.875rem;
+    color: #666;
+    margin-bottom: 1rem;
+}
+
+.candidate-action {
+    margin-top: 1rem;
+}
+
+.create-new-section h2,
+.email-info h3,
+.card-info h3 {
+    margin-bottom: 1rem;
+}
+
+.card-preview {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-top: 0.5rem;
+}
+
+.card-preview h4 {
+    margin-bottom: 0.5rem;
+}
+
+.card-stats {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    color: #666;
+}
+
+.info-message {
+    background-color: #e3f2fd;
+    border-left: 3px solid #2196f3;
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1.5rem;
+}
+
+.import-actions {
+    margin-top: 1.5rem;
 }
