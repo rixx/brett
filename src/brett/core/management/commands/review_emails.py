@@ -1,3 +1,4 @@
+import email
 import re
 import subprocess
 import tempfile
@@ -25,6 +26,52 @@ class Command(BaseCommand):
             type=str,
             help="Path to mail directory (e.g. ~/.local/share/mail/account/folder/cur/)",
         )
+
+    def strip_large_attachments(self, content, max_size=1_500_000):
+        """Strip the largest non-text MIME attachments until content is under max_size."""
+        if len(content) <= max_size:
+            return content
+
+        msg = email.message_from_string(content)
+        if not msg.is_multipart():
+            return content
+
+        while len(msg.as_string()) > max_size:
+            # Find the largest non-text part
+            largest_part = None
+            largest_size = 0
+            for part in msg.walk():
+                if part.is_multipart():
+                    continue
+                content_type = part.get_content_type()
+                if content_type in ("text/plain", "text/html"):
+                    continue
+                part_size = len(part.as_string())
+                if part_size > largest_size:
+                    largest_size = part_size
+                    largest_part = part
+
+            if largest_part is None:
+                break
+
+            filename = largest_part.get_filename() or "unnamed"
+            size_str = (
+                f"{largest_size / 1024 / 1024:.1f}MB"
+                if largest_size > 1024 * 1024
+                else f"{largest_size / 1024:.0f}KB"
+            )
+            # Replace the attachment with a placeholder
+            for header in (
+                "Content-Transfer-Encoding",
+                "Content-Disposition",
+                "Content-ID",
+            ):
+                if header in largest_part:
+                    del largest_part[header]
+            largest_part.set_type("text/plain")
+            largest_part.set_payload(f"[attachment stripped: {filename}, {size_str}]\n")
+
+        return msg.as_string()
 
     def decrypt_pgp(self, block):
         """Decrypt a PGP message block using gpg."""
@@ -67,7 +114,8 @@ class Command(BaseCommand):
 
         self.stdout.write(f"Sorting {len(unsorted)} emails by date...")
         files = sorted(unsorted, key=_date_key)
-        skipped = 0
+        already_imported = 0
+        no_message_id = 0
         copied = 0
 
         progress = None
@@ -92,14 +140,14 @@ class Command(BaseCommand):
                 self.stdout.write(
                     self.style.WARNING(f"  No Message-ID: {mail_file.name}")
                 )
-                skipped += 1
+                no_message_id += 1
                 if progress is not None:
                     progress.total -= 1
                     progress.refresh()
                 continue
 
             if Entry.objects.filter(message_id=message_id).exists():
-                skipped += 1
+                already_imported += 1
                 if progress is not None:
                     progress.total -= 1
                     progress.refresh()
@@ -111,6 +159,12 @@ class Command(BaseCommand):
             if PGP_BLOCK_RE.search(content):
                 content = self.decrypt_pgp_blocks(content)
                 self.stdout.write("  Decrypted PGP content.")
+            original_size = len(content)
+            content = self.strip_large_attachments(content)
+            if len(content) < original_size:
+                self.stdout.write(
+                    f"  Stripped attachments: {original_size / 1024:.0f}KB → {len(content) / 1024:.0f}KB"
+                )
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".eml", delete=False
             ) as tmp:
