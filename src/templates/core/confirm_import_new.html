@@ -53,7 +53,7 @@
             <label for="column">Column</label>
             <select id="column" name="column_id" class="form-input">
                 {% for column in columns %}
-                <option value="{{ column.id }}">{{ column.name }}</option>
+                <option value="{{ column.id }}" {% if column.id == last_used_column_id %}selected{% endif %}>{{ column.name }}</option>
                 {% endfor %}
             </select>
         </div>

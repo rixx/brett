@@ -122,6 +122,8 @@ def move_card(request, card_id):
     card.column = new_column
     card.save()
 
+    request.session["last_used_column_id"] = new_column.id
+
     # Return success response
     return render(request, "core/move_success.html", {"card": card})
 
@@ -414,6 +416,8 @@ def confirm_import_new(request):
                 {"error": "No column found. Please create a column first."},
             )
 
+        request.session["last_used_column_id"] = column.id
+
         # Parse date if it's a string
         email_date = parsed.get("date")
         if isinstance(email_date, str):
@@ -455,8 +459,13 @@ def confirm_import_new(request):
 
     board = Board.objects.first()
     columns = board.columns.all() if board else Column.objects.none()
+    last_used_column_id = request.session.get("last_used_column_id")
     return render(
         request,
         "core/confirm_import_new.html",
-        {"parsed": parsed, "columns": columns},
+        {
+            "parsed": parsed,
+            "columns": columns,
+            "last_used_column_id": last_used_column_id,
+        },
     )
