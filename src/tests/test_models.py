@@ -1,6 +1,6 @@
 from django.utils import timezone
 
-from brett.core.models import Correspondent, Entry
+from brett.core.models import Card, Correspondent, Entry
 
 
 def test_board_str(board):
@@ -64,3 +64,58 @@ def test_card_entry_count_with_entries(card):
         body="Body 2",
     )
     assert card.entry_count == 2
+
+
+def test_entry_parsed_body_with_raw_message(card):
+    """Test that parsed_body extracts body from raw_message."""
+    entry = Entry.objects.create(
+        card=card,
+        from_addr="test@example.com",
+        subject="Test",
+        message_id="<test@example.com>",
+        date=timezone.now(),
+        body="Original body",
+        raw_message="Subject: Test\nFrom: test@example.com\n\nExtracted body from raw message",
+    )
+    assert entry.parsed_body == "Extracted body from raw message"
+
+
+def test_entry_parsed_body_with_raw_message_no_separator(card):
+    """Test parsed_body when raw_message has no double newline separator."""
+    entry = Entry.objects.create(
+        card=card,
+        from_addr="test@example.com",
+        subject="Test",
+        message_id="<test@example.com>",
+        date=timezone.now(),
+        body="Original body",
+        raw_message="No separator in this message",
+    )
+    assert entry.parsed_body == "No separator in this message"
+
+
+def test_entry_parsed_body_without_raw_message(card):
+    """Test that parsed_body falls back to body when no raw_message."""
+    entry = Entry.objects.create(
+        card=card,
+        from_addr="test@example.com",
+        subject="Test",
+        message_id="<test@example.com>",
+        date=timezone.now(),
+        body="Fallback body",
+        raw_message="",
+    )
+    assert entry.parsed_body == "Fallback body"
+
+
+def test_card_update_dates_from_entries_with_no_entries(column):
+    """Test update_dates_from_entries when card has no entries."""
+    card = Card.objects.create(
+        column=column,
+        title="Empty Card",
+    )
+    # Should not raise an error
+    card.update_dates_from_entries()
+    # Dates should remain None
+    assert card.start_date is None
+    assert card.last_update_date is None
