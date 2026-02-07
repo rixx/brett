@@ -1,7 +1,9 @@
 import re
 import subprocess
 import tempfile
+from datetime import datetime, timezone
 from email.parser import HeaderParser
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 from django.core.management.base import BaseCommand
@@ -46,12 +48,25 @@ class Command(BaseCommand):
             self.stderr.write(self.style.ERROR(f"Not a directory: {directory}"))
             return
 
-        files = sorted(f for f in directory.iterdir() if f.is_file())
-        if not files:
+        unsorted = [f for f in directory.iterdir() if f.is_file()]
+        if not unsorted:
             self.stdout.write(self.style.WARNING("No files found in directory."))
             return
 
         header_parser = HeaderParser()
+
+        def _date_key(path):
+            headers = header_parser.parsestr(path.read_text(errors="replace"))
+            try:
+                dt = parsedate_to_datetime(headers["Date"])
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
+            except Exception:
+                return datetime.min.replace(tzinfo=timezone.utc)
+
+        self.stdout.write(f"Sorting {len(unsorted)} emails by date...")
+        files = sorted(unsorted, key=_date_key)
         skipped = 0
         copied = 0
 
