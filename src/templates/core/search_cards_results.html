@@ -10,6 +10,9 @@
     <div class="candidate-meta">
         <span>{{ result.card.entry_count }} message{{ result.card.entry_count|pluralize }}</span>
         <span>Column: {{ result.card.column.name }}</span>
+        {% if result.card.start_date %}
+        <span>{{ result.card.start_date|date:"Y-m-d" }} – {{ result.card.last_update_date|date:"Y-m-d" }}</span>
+        {% endif %}
     </div>
     <form method="get" action="{% url 'confirm_import' result.card.id %}" class="candidate-action">
         <button type="submit" class="btn btn-primary btn-sm">Add to this card</button>
