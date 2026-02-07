@@ -70,3 +70,18 @@ def correspondent(db, board):
         name="John Doe",
         aliases=["john.doe@example.com", "j.doe@example.com"],
     )
+
+
+@pytest.fixture
+def correspondents(db, board):
+    return [
+        Correspondent.objects.create(
+            board=board, email="alpha@example.com", name="Alpha User"
+        ),
+        Correspondent.objects.create(
+            board=board, email="beta@example.com", name="Beta User"
+        ),
+        Correspondent.objects.create(
+            board=board, email="gamma@example.com", name="Gamma User"
+        ),
+    ]

@@ -32,9 +32,11 @@ class BoardAdmin(admin.ModelAdmin):
     list_display = ["name", "created_at", "column_count"]
     search_fields = ["name", "description"]
     readonly_fields = ["created_at", "updated_at"]
+    filter_horizontal = ["core_team"]
     inlines = [ColumnInline]
     fieldsets = [
         (None, {"fields": ["name", "slug", "description"]}),
+        ("Core Team", {"fields": ["core_team"]}),
         ("Timestamps", {"fields": ["created_at", "updated_at"]}),
     ]
 

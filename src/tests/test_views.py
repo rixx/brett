@@ -1146,3 +1146,185 @@ def test_import_updates_correspondent_name_if_missing(client, card, board):
     # Verify correspondent name was updated
     correspondent.refresh_from_db()
     assert correspondent.name == "Test User"
+
+
+# Related cards tests
+def test_card_detail_shows_related_cards(client, board, column, correspondents):
+    """Cards sharing non-core correspondents appear as related."""
+    card1 = Card.objects.create(column=column, title="Card One")
+    card2 = Card.objects.create(column=column, title="Card Two")
+    # Both cards share correspondents[0]
+    Entry.objects.create(
+        card=card1,
+        sender=correspondents[0],
+        from_addr="alpha@example.com",
+        subject="S1",
+        date=timezone.now(),
+        body="body",
+    )
+    Entry.objects.create(
+        card=card2,
+        sender=correspondents[0],
+        from_addr="alpha@example.com",
+        subject="S2",
+        date=timezone.now(),
+        body="body",
+    )
+
+    response = client.get(reverse("card_detail", kwargs={"card_id": card1.id}))
+    content = response.content.decode()
+    assert "Related Cards" in content
+    assert "Card Two" in content
+
+
+def test_card_detail_excludes_core_team_from_related(
+    client, board, column, correspondents
+):
+    """Cards sharing only core team correspondents should not appear as related."""
+    # Mark correspondents[0] as core team
+    board.core_team.add(correspondents[0])
+
+    card1 = Card.objects.create(column=column, title="Card One")
+    card2 = Card.objects.create(column=column, title="Card Two")
+    # Both cards share only the core team correspondent
+    Entry.objects.create(
+        card=card1,
+        sender=correspondents[0],
+        from_addr="alpha@example.com",
+        subject="S1",
+        date=timezone.now(),
+        body="body",
+    )
+    Entry.objects.create(
+        card=card2,
+        sender=correspondents[0],
+        from_addr="alpha@example.com",
+        subject="S2",
+        date=timezone.now(),
+        body="body",
+    )
+
+    response = client.get(reverse("card_detail", kwargs={"card_id": card1.id}))
+    content = response.content.decode()
+    assert "Related Cards" not in content
+
+
+def test_card_detail_related_mixed_core_and_non_core(
+    client, board, column, correspondents
+):
+    """Core team is excluded but non-core correspondents still match."""
+    board.core_team.add(correspondents[0])
+
+    card1 = Card.objects.create(column=column, title="Card One")
+    card2 = Card.objects.create(column=column, title="Card Two")
+    # Both cards have core team member and non-core member
+    for card in [card1, card2]:
+        Entry.objects.create(
+            card=card,
+            sender=correspondents[0],
+            from_addr="alpha@example.com",
+            subject="S",
+            date=timezone.now(),
+            body="body",
+        )
+        Entry.objects.create(
+            card=card,
+            sender=correspondents[1],
+            from_addr="beta@example.com",
+            subject="S",
+            date=timezone.now(),
+            body="body",
+        )
+
+    response = client.get(reverse("card_detail", kwargs={"card_id": card1.id}))
+    content = response.content.decode()
+    assert "Related Cards" in content
+    assert "Card Two" in content
+    # Should show the non-core correspondent badge, not the core one
+    assert "Beta User" in content
+
+
+def test_card_detail_no_related_when_no_correspondents(client, card):
+    """Card with no entries/correspondents shows no related section."""
+    response = client.get(reverse("card_detail", kwargs={"card_id": card.id}))
+    content = response.content.decode()
+    assert "Related Cards" not in content
+
+
+def test_card_detail_excludes_self_from_related(client, board, column, correspondents):
+    """A card should not appear in its own related cards."""
+    card1 = Card.objects.create(column=column, title="Card One")
+    Entry.objects.create(
+        card=card1,
+        sender=correspondents[0],
+        from_addr="alpha@example.com",
+        subject="S1",
+        date=timezone.now(),
+        body="body",
+    )
+
+    response = client.get(reverse("card_detail", kwargs={"card_id": card1.id}))
+    content = response.content.decode()
+    # Only one card with this correspondent, so no related cards
+    assert "Related Cards" not in content
+
+
+def test_card_detail_related_multiple_shared_correspondents(
+    client, board, column, correspondents
+):
+    """Cards sharing multiple correspondents show all shared badges."""
+    card1 = Card.objects.create(column=column, title="Card One")
+    card2 = Card.objects.create(column=column, title="Card Two")
+    for corr in correspondents[:2]:
+        Entry.objects.create(
+            card=card1,
+            sender=corr,
+            from_addr=corr.email,
+            subject="S",
+            date=timezone.now(),
+            body="body",
+        )
+        Entry.objects.create(
+            card=card2,
+            sender=corr,
+            from_addr=corr.email,
+            subject="S",
+            date=timezone.now(),
+            body="body",
+        )
+
+    response = client.get(reverse("card_detail", kwargs={"card_id": card1.id}))
+    content = response.content.decode()
+    assert "Alpha User" in content
+    assert "Beta User" in content
+
+
+def test_card_detail_related_htmx_partial(client, board, column, correspondents):
+    """HTMX request returns partial with related cards."""
+    card1 = Card.objects.create(column=column, title="Card One")
+    card2 = Card.objects.create(column=column, title="Card Two")
+    Entry.objects.create(
+        card=card1,
+        sender=correspondents[0],
+        from_addr="alpha@example.com",
+        subject="S1",
+        date=timezone.now(),
+        body="body",
+    )
+    Entry.objects.create(
+        card=card2,
+        sender=correspondents[0],
+        from_addr="alpha@example.com",
+        subject="S2",
+        date=timezone.now(),
+        body="body",
+    )
+
+    response = client.get(
+        reverse("card_detail", kwargs={"card_id": card1.id}),
+        HTTP_HX_REQUEST="true",
+    )
+    content = response.content.decode()
+    assert "<html" not in content
+    assert "Related Cards" in content
+    assert "Card Two" in content

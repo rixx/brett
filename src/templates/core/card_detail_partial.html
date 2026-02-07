@@ -59,6 +59,27 @@
         <a href="{% url 'board_detail' board.slug %}" class="btn btn-secondary">← Back to Board</a>
     </div>
 
+    {% if related_cards %}
+    <div class="related-cards">
+        <h3>Related Cards</h3>
+        <div class="related-cards-list">
+            {% for item in related_cards %}
+            <div class="related-card-item">
+                <div class="related-card-header">
+                    <a href="{% url 'card_detail' item.card.id %}" class="related-card-title">{{ item.card.title }}</a>
+                    <span class="related-card-column">{{ item.card.column.name }}</span>
+                </div>
+                <div class="related-card-correspondents">
+                    {% for correspondent in item.shared_correspondents %}
+                    <span class="correspondent-badge">{{ correspondent.name|default:correspondent.email }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <div class="entries">
         <h3>Entries ({{ entries.count }})</h3>
 

@@ -1,6 +1,7 @@
 import re
+from collections import defaultdict
 
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render, reverse
 from django.utils import timezone
@@ -27,9 +28,84 @@ def board_detail(request, slug):
     )
 
 
+def _get_related_cards(card, board):
+    """Find cards on the same board that share non-core-team correspondents."""
+    # Get this card's correspondent IDs from entries
+    card_correspondent_ids = set(
+        card.entries.filter(sender__isnull=False).values_list("sender_id", flat=True)
+    )
+    if not card_correspondent_ids:
+        return []
+
+    # Subtract core team
+    core_team_ids = set(board.core_team.values_list("id", flat=True))
+    non_core_ids = card_correspondent_ids - core_team_ids
+    if not non_core_ids:
+        return []
+
+    # Find other cards on the same board sharing these correspondents
+    related_cards = (
+        Card.objects.filter(
+            column__board=board,
+            entries__sender_id__in=non_core_ids,
+        )
+        .exclude(pk=card.pk)
+        .annotate(shared_count=Count("entries__sender_id", distinct=True))
+        .order_by("-shared_count")[:10]
+    )
+
+    if not related_cards:
+        return []
+
+    # Batch-fetch which correspondents are shared per related card
+    related_card_ids = [c.pk for c in related_cards]
+    shared_entries = (
+        Entry.objects.filter(
+            card_id__in=related_card_ids,
+            sender_id__in=non_core_ids,
+        )
+        .values_list("card_id", "sender_id")
+        .distinct()
+    )
+
+    # Map card_id -> set of correspondent IDs
+    card_correspondent_map = defaultdict(set)
+    for cid, sid in shared_entries:
+        card_correspondent_map[cid].add(sid)
+
+    # Fetch correspondent objects for display
+    all_shared_ids = set()
+    for ids in card_correspondent_map.values():
+        all_shared_ids |= ids
+    correspondents_by_id = {
+        c.pk: c for c in Correspondent.objects.filter(pk__in=all_shared_ids)
+    }
+
+    result = []
+    for rc in related_cards:
+        shared_ids = card_correspondent_map.get(rc.pk, set())
+        shared_correspondents = [
+            correspondents_by_id[sid]
+            for sid in shared_ids
+            if sid in correspondents_by_id
+        ]
+        result.append(
+            {
+                "card": rc,
+                "shared_correspondents": shared_correspondents,
+                "shared_count": len(shared_correspondents),
+            }
+        )
+
+    return result
+
+
 def card_detail(request, card_id):
     card = get_object_or_404(Card.objects.select_related("column__board"), pk=card_id)
     entries = card.entries.select_related("sender").all()
+    board = card.column.board
+
+    related_cards = _get_related_cards(card, board)
 
     # Check if this is an HTMX request
     is_htmx = request.headers.get("HX-Request") == "true"
@@ -39,7 +115,12 @@ def card_detail(request, card_id):
     return render(
         request,
         template,
-        {"card": card, "entries": entries, "board": card.column.board},
+        {
+            "card": card,
+            "entries": entries,
+            "board": board,
+            "related_cards": related_cards,
+        },
     )
 
 

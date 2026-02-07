@@ -42,3 +42,8 @@ def test_tag_admin_entry_count(tag, entry):
     entry.tags.add(tag)
     tag_admin = TagAdmin(Tag, AdminSite())
     assert tag_admin.entry_count(tag) == 1
+
+
+def test_board_admin_has_core_team_filter_horizontal():
+    board_admin = BoardAdmin(Board, AdminSite())
+    assert "core_team" in board_admin.filter_horizontal
