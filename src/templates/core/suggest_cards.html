@@ -24,6 +24,11 @@
             </div>
             {% endif %}
         </div>
+        {% if parsed.body %}
+        <div class="body-preview">
+            {{ parsed.body|truncatewords:50 }}
+        </div>
+        {% endif %}
     </div>
 
     {% if candidates %}
