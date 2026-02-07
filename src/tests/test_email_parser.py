@@ -293,6 +293,22 @@ Test body.
     assert result["subject"] == "Re: Complaint to the Aufsichtsbehörde für Datenschutz"
 
 
+def test_parse_email_with_rfc2047_encoded_subject():
+    """Test that RFC 2047 encoded subjects in regular (non-PGP) emails are decoded."""
+    raw_email = """From: Test User <test@example.com>
+Subject: =?UTF-8?Q?Re=3A_Einladung_zum_Sommerfest_f=C3=BCr?=
+ =?UTF-8?Q?_alle_Mitglieder?=
+Date: Tue, 8 Apr 2025 14:38:30 +0200
+Message-ID: <test-rfc2047@example.com>
+Content-Type: text/plain; charset=UTF-8
+
+Test body."""
+
+    result = parse_raw_email(raw_email)
+    assert result["subject"] == "Re: Einladung zum Sommerfest f\u00fcr alle Mitglieder"
+    assert "=?UTF-8?" not in result["subject"]
+
+
 def test_non_placeholder_subject_not_overridden():
     """Test that a real subject is not replaced by protected-headers subject."""
     raw_email = """From: test@example.com

@@ -24,6 +24,10 @@ brett is a lightweight kanban board optimized for tracking email threads and con
 - no javascript frameworks beyond htmx, plain js otherwise
 - no mobile views
 
+**testing**
+
+- never use real names, email addresses, domains, or other actual information in tests — always use generic test data (e.g. test@example.com, Test User)
+
 **project stuff**
 
 check the justfile for commands to run for testing and formatting

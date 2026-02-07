@@ -116,6 +116,7 @@ def parse_raw_email(raw_message):
     if subjects:
         # Use the longer subject if there are multiple
         subject = max(subjects, key=len) if len(subjects) > 1 else subjects[0]
+        subject = _decode_rfc2047(subject)
     else:
         subject = ""
 
