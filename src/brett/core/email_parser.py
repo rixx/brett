@@ -33,6 +33,41 @@ def _extract_protected_subject(raw_message):
     return None
 
 
+def _extract_body_from_pgp_payload(msg):
+    """Extract body from the decrypted inner MIME structure of a PGP-encrypted email.
+
+    The application/octet-stream part of a multipart/encrypted email contains
+    the decrypted MIME message. Parse it to find text/plain content.
+    """
+    for part in msg.walk():
+        if part.get_content_type() == "application/octet-stream":
+            # Try decoded payload (bytes)
+            payload = part.get_payload(decode=True)
+            if payload:
+                try:
+                    inner_msg = email.message_from_bytes(payload)
+                    for inner_part in inner_msg.walk():
+                        if inner_part.get_content_type() == "text/plain":
+                            inner_body = inner_part.get_payload(decode=True)
+                            if inner_body:
+                                return inner_body.decode("utf-8", errors="ignore")
+                except Exception:
+                    pass
+            # Try string payload (no transfer encoding)
+            payload_str = part.get_payload(decode=False)
+            if isinstance(payload_str, str) and payload_str.strip():
+                try:
+                    inner_msg = email.message_from_string(payload_str)
+                    for inner_part in inner_msg.walk():
+                        if inner_part.get_content_type() == "text/plain":
+                            inner_body = inner_part.get_payload(decode=True)
+                            if inner_body:
+                                return inner_body.decode("utf-8", errors="ignore")
+                except Exception:
+                    pass
+    return None
+
+
 def parse_raw_email(raw_message):
     """
     Parse a raw email message and extract headers and body.
@@ -109,6 +144,10 @@ def parse_raw_email(raw_message):
                     break
                 except Exception:
                     continue
+        # For PGP-encrypted emails, the text/plain part is inside the
+        # application/octet-stream payload which contains the decrypted MIME
+        if not body and msg.get_content_type() == "multipart/encrypted":
+            body = _extract_body_from_pgp_payload(msg) or ""
     else:
         try:
             body = msg.get_payload(decode=True).decode("utf-8", errors="ignore")
