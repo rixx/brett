@@ -2,6 +2,7 @@
 
 import email
 import re
+from email.header import decode_header as _decode_header
 from email.utils import parseaddr, parsedate_to_datetime
 
 
@@ -13,9 +14,21 @@ def _is_placeholder_subject(subject):
     return bool(re.match(r"^(Re:\s*)*\.{2,}$", stripped))
 
 
+def _decode_rfc2047(value):
+    """Decode RFC 2047 encoded-words in a header value."""
+    parts = _decode_header(value)
+    decoded = []
+    for part, charset in parts:
+        if isinstance(part, bytes):
+            decoded.append(part.decode(charset or "utf-8", errors="replace"))
+        else:
+            decoded.append(part)
+    return "".join(decoded)
+
+
 def _extract_protected_subject(raw_message):
     """Extract subject from protected-headers block in a PGP-encrypted email."""
-    match = re.search(r'protected-headers="v\d+"', raw_message)
+    match = re.search(r'protected-headers="?v\d+"?', raw_message)
     if not match:
         return None
     remaining = raw_message[match.end() :]
@@ -24,12 +37,20 @@ def _extract_protected_subject(raw_message):
     if newline_pos == -1:
         return None
     remaining = remaining[newline_pos + 1 :]
-    for line in remaining.split("\n"):
+    lines = remaining.split("\n")
+    for i, line in enumerate(lines):
         stripped = line.strip()
         if not stripped:
             break
         if stripped.startswith("Subject:"):
-            return stripped[len("Subject:") :].strip()
+            subject_value = stripped[len("Subject:") :].strip()
+            # Handle folded headers (continuation lines starting with whitespace)
+            for cont_line in lines[i + 1 :]:
+                if cont_line and cont_line[0] in (" ", "\t"):
+                    subject_value += " " + cont_line.strip()
+                else:
+                    break
+            return _decode_rfc2047(subject_value)
     return None
 
 

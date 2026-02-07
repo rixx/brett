@@ -252,6 +252,47 @@ Body text."""
     assert result["subject"] == "Re: Actual Subject"
 
 
+def test_parse_pgp_email_unquoted_protected_headers_and_encoded_subject():
+    """Test PGP email with unquoted protected-headers value and RFC 2047 encoded folded subject."""
+    raw_email = """From: Alice Sender <alice@example.com>
+Subject: ...
+Date: Tue, 8 Apr 2025 11:53:45 +0200
+Message-ID: <test@example.com>
+MIME-Version: 1.0
+Content-Type: multipart/encrypted; protocol="application/pgp-encrypted";
+    boundary="zfdfc6ju2ga26gbs"
+Content-Disposition: inline
+
+--zfdfc6ju2ga26gbs
+Content-Type: application/pgp-encrypted
+Content-Disposition: attachment
+
+Version: 1
+
+--zfdfc6ju2ga26gbs
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename="msg.asc"
+
+Content-Type: multipart/mixed; protected-headers=v1;
+    boundary="edtvsywf3y23w5sr"
+Content-Disposition: inline
+Content-Transfer-Encoding: 8bit
+Subject: Re: Complaint to the =?utf-8?Q?Aufsichtsbeh=C3=B6rde?=
+ =?utf-8?Q?_f=C3=BCr?= Datenschutz
+MIME-Version: 1.0
+
+--edtvsywf3y23w5sr
+Content-Type: text/plain; charset=UTF-8
+
+Test body.
+--edtvsywf3y23w5sr--
+--zfdfc6ju2ga26gbs--
+"""
+
+    result = parse_raw_email(raw_email)
+    assert result["subject"] == "Re: Complaint to the Aufsichtsbehörde für Datenschutz"
+
+
 def test_non_placeholder_subject_not_overridden():
     """Test that a real subject is not replaced by protected-headers subject."""
     raw_email = """From: test@example.com
