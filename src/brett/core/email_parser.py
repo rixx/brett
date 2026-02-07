@@ -182,8 +182,9 @@ def parse_raw_email(raw_message):
         for part in msg.walk():
             if part.get_content_type() == "text/plain":
                 try:
+                    charset = part.get_content_charset() or "utf-8"
                     body = part.get_payload(decode=True).decode(
-                        "utf-8", errors="ignore"
+                        charset, errors="replace"
                     )
                     break
                 except Exception:
@@ -194,7 +195,8 @@ def parse_raw_email(raw_message):
             body = _extract_body_from_pgp_payload(msg) or ""
     else:
         try:
-            body = msg.get_payload(decode=True).decode("utf-8", errors="ignore")
+            charset = msg.get_content_charset() or "utf-8"
+            body = msg.get_payload(decode=True).decode(charset, errors="replace")
         except Exception:
             body = msg.get_payload()
 

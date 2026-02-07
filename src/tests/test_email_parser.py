@@ -375,3 +375,31 @@ Viele Gr=FC=DFe
     assert "Gr\u00fc\u00dfe" in result["body"]  # üße
     assert "=FC" not in result["body"]
     assert "=DF" not in result["body"]
+
+
+def test_multipart_body_quoted_printable_iso8859():
+    """Test that QP-encoded iso-8859-1 bodies in regular multipart emails are decoded."""
+    raw_email = """From: test@example.com
+Subject: Test Subject
+Date: Fri, 11 Apr 2025 11:47:31 +0200
+Message-ID: <test-mp-qp@example.com>
+Content-Type: multipart/mixed;
+    boundary="testboundary"
+MIME-Version: 1.0
+
+--testboundary
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+als Anlage =FCbersende ich Ihnen die vorl=E4ufigen Auswertungen.
+
+Mit freundlichen Gr=FC=DFen
+
+--testboundary--"""
+
+    result = parse_raw_email(raw_email)
+    assert "\u00fc" in result["body"]  # ü in übersende
+    assert "vorl\u00e4ufigen" in result["body"]  # ä
+    assert "Gr\u00fc\u00dfe" in result["body"]  # üße
+    assert "=FC" not in result["body"]
+    assert "=E4" not in result["body"]
