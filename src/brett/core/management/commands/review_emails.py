@@ -188,6 +188,12 @@ class Command(BaseCommand):
                 self.stdout.write("")
                 break
 
+        total_emails = len(files) - no_message_id
+        total_imported = already_imported + copied
+        remaining = total_emails - total_imported
+        session_pct = (copied / total_emails * 100) if total_emails else 0
+        total_pct = (total_imported / total_emails * 100) if total_emails else 0
+        self.stdout.write(f"\nSession: {copied} emails imported ({session_pct:.0f}%)")
         self.stdout.write(
-            self.style.SUCCESS(f"\nDone. {copied} copied, {skipped} skipped.")
+            f"Total:   {total_imported}/{total_emails} emails imported ({total_pct:.0f}%), {remaining} remaining"
         )
