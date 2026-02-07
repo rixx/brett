@@ -22,6 +22,7 @@
                 placeholder="Paste the complete email message including headers here..."
                 required
                 autofocus
+                onkeydown="if(event.ctrlKey && event.key === 'Enter') this.form.submit()"
             ></textarea>
         </div>
 

@@ -17,6 +17,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Keyboard shortcut: [n] to navigate to import page
+    document.addEventListener('keydown', (event) => {
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+        if (event.key === 'n') {
+            window.location.href = '/import/';
+        }
+    });
+
     // Copy message ID to clipboard - use event delegation
     document.addEventListener('click', (event) => {
         const copyBtn = event.target.closest('.copy-message-id');
