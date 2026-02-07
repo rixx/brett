@@ -9,6 +9,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("import/", views.import_email, name="import_email"),
     path("import/suggest/", views.suggest_cards, name="suggest_cards"),
+    path("import/search/", views.search_cards, name="search_cards"),
     path(
         "import/confirm/<int:card_id>/",
         views.confirm_import,

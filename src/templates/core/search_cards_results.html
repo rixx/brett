@@ -1,0 +1,20 @@
+{% for result in results %}
+<div class="candidate-card">
+    <div class="candidate-header">
+        <h3>{{ result.card.title }}</h3>
+        <span class="candidate-reason">Search result</span>
+    </div>
+    <div class="candidate-preview">
+        {{ result.preview|truncatewords:30 }}
+    </div>
+    <div class="candidate-meta">
+        <span>{{ result.card.entry_count }} message{{ result.card.entry_count|pluralize }}</span>
+        <span>Column: {{ result.card.column.name }}</span>
+    </div>
+    <form method="get" action="{% url 'confirm_import' result.card.id %}" class="candidate-action">
+        <button type="submit" class="btn btn-primary btn-sm">Add to this card</button>
+    </form>
+</div>
+{% empty %}
+<p class="search-no-results">No cards found.</p>
+{% endfor %}

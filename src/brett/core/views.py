@@ -1,6 +1,7 @@
 import re
 
 from django.db.models import Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render, reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -320,6 +321,26 @@ def suggest_cards(request):
             "candidates": candidates[:8],  # Limit to 8 suggestions
         },
     )
+
+
+def search_cards(request):
+    """Search cards by title for the import suggest page."""
+    q = request.GET.get("q", "").strip()
+    if len(q) < 2:
+        return HttpResponse("")
+
+    cards = Card.objects.filter(title__icontains=q).select_related("column")[:10]
+    results = []
+    for card in cards:
+        first_entry = card.entries.first()
+        results.append(
+            {
+                "card": card,
+                "preview": first_entry.body[:200] if first_entry else "",
+            }
+        )
+
+    return render(request, "core/search_cards_results.html", {"results": results})
 
 
 def _get_or_create_correspondent(board, email_addr, name=None):
