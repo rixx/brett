@@ -26,7 +26,7 @@
         </div>
         {% if parsed.body %}
         <div class="body-preview">
-            {{ parsed.body|truncatewords:50 }}
+            {{ parsed.body|linebreaksbr|truncatewords_html:150 }}
         </div>
         {% endif %}
     </div>

@@ -39,7 +39,7 @@
         </div>
         <div class="email-field">
             <strong>Body Preview:</strong>
-            <div class="body-preview">{{ parsed.body|truncatewords:50 }}</div>
+            <div class="body-preview">{{ parsed.body|linebreaksbr|truncatewords_html:150 }}</div>
         </div>
     </div>
 
