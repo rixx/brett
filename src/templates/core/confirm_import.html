@@ -38,8 +38,12 @@
             <strong>Date:</strong> {{ parsed.date|date:"Y-m-d H:i" }}
         </div>
         <div class="email-field">
-            <strong>Body Preview:</strong>
-            <div class="body-preview">{{ parsed.body|linebreaksbr|truncatewords_html:150 }}</div>
+            <details>
+                <summary>
+                    <strong>Body Preview:</strong>
+                </summary>
+                <div class="body-preview">{{ parsed.body|linebreaksbr|truncatewords_html:150 }}</div>
+            </details>
         </div>
     </div>
 
@@ -54,6 +58,7 @@
                 class="form-input"
                 placeholder="e.g., '+1', 'questions', 'approved'"
                 maxlength="200"
+                autofocus
             >
             <small style="color: #666;">Very short summary of this entry (optional)</small>
         </div>
