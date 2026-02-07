@@ -447,7 +447,9 @@ def confirm_import_new(request):
             if existing_entry:
                 board = Board.objects.first()
                 columns = board.columns.all() if board else Column.objects.none()
-                card_title = _clean_subject_for_matching(parsed.get("subject", "")) or "Untitled"
+                card_title = (
+                    _clean_subject_for_matching(parsed.get("subject", "")) or "Untitled"
+                )
                 return render(
                     request,
                     "core/confirm_import_new.html",
