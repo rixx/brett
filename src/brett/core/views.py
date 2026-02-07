@@ -1,3 +1,5 @@
+import re
+
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render, reverse
 from django.utils import timezone
@@ -208,12 +210,7 @@ def suggest_cards(request):
 
     # Then, try to find cards by similar subject
     if parsed.get("subject"):
-        subject = parsed["subject"]
-        # Extract subject without Re:, Fwd:, etc. and normalize whitespace
-        clean_subject = subject
-        for prefix in ["Re:", "RE:", "re:", "Fwd:", "FWD:", "fwd:", "Fw:", "FW:"]:
-            clean_subject = clean_subject.replace(prefix, "").strip()
-        clean_subject = " ".join(clean_subject.split())  # Normalize whitespace
+        clean_subject = _clean_subject_for_matching(parsed["subject"])
 
         if clean_subject:
             # Strategy 1: Exact match on card title (case insensitive)
@@ -236,7 +233,7 @@ def suggest_cards(request):
                 if card.id in seen_cards:
                     continue
 
-                card_title_clean = " ".join(card.title.split()).lower()
+                card_title_clean = _clean_subject_for_matching(card.title).lower()
                 clean_subject_lower = clean_subject.lower()
 
                 # Bidirectional matching

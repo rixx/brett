@@ -403,3 +403,53 @@ Mit freundlichen Gr=FC=DFen
     assert "Gr\u00fc\u00dfe" in result["body"]  # üße
     assert "=FC" not in result["body"]
     assert "=E4" not in result["body"]
+
+
+def test_parse_email_with_references_header():
+    """Test parsing an email with References header."""
+    raw_email = """From: test@example.com
+Subject: Re: Discussion
+Date: Mon, 1 Jan 2024 12:00:00 +0000
+In-Reply-To: <reply-to@example.com>
+References: <first@example.com> <second@example.com> <reply-to@example.com>
+
+Reply body."""
+
+    result = parse_raw_email(raw_email)
+    assert result["references"] == [
+        "<first@example.com>",
+        "<second@example.com>",
+        "<reply-to@example.com>",
+    ]
+
+
+def test_parse_email_without_references_header():
+    """Test parsing an email without References header returns empty list."""
+    raw_email = """From: test@example.com
+Subject: New thread
+Date: Mon, 1 Jan 2024 12:00:00 +0000
+
+Body."""
+
+    result = parse_raw_email(raw_email)
+    assert result["references"] == []
+
+
+def test_single_part_8bit_utf8_body():
+    """Test that 8bit UTF-8 bodies in non-multipart emails preserve Unicode."""
+    raw_email = """From: test@example.com
+Subject: Test Subject
+Date: Sun, 13 Apr 2025 21:20:15 +0200
+Message-ID: <test-8bit-utf8@example.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+
+wir nehmen die F\u00f6rderung zu den 50% an.
+Vielen Dank daf\u00fcr!
+Viele Gr\u00fc\u00dfe"""
+
+    result = parse_raw_email(raw_email)
+    assert "F\u00f6rderung" in result["body"]  # ö
+    assert "daf\u00fcr" in result["body"]  # ü
+    assert "Gr\u00fc\u00dfe" in result["body"]  # üße
+    assert "\ufffd" not in result["body"]  # no replacement characters

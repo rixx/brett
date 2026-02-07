@@ -586,6 +586,119 @@ def test_suggest_cards_in_reply_to_matching(client, board, column):
     assert "Reply to:" in content
 
 
+def test_suggest_cards_strips_unchecked_from_subject(client, board, column):
+    # Create a card with a clean title
+    card = Card.objects.create(
+        column=column,
+        title="Budget Report",
+        start_date=timezone.now(),
+        last_update_date=timezone.now(),
+    )
+
+    # Email subject has ***UNCHECKED*** marker
+    session = client.session
+    session["parsed_email"] = {
+        "from_addr": "test@example.com",
+        "subject": "Re: ***UNCHECKED*** Budget Report",
+        "date": "2024-01-01 12:00:00",
+        "body": "Test body",
+    }
+    session.save()
+
+    response = client.get(reverse("suggest_cards"))
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert card.title in content
+
+
+def test_suggest_cards_strips_spam_markers_from_subject(client, board, column):
+    # Create a card with a clean title
+    card = Card.objects.create(
+        column=column,
+        title="Meeting Agenda",
+        start_date=timezone.now(),
+        last_update_date=timezone.now(),
+    )
+
+    # Email subject has [EXTERNAL] marker
+    session = client.session
+    session["parsed_email"] = {
+        "from_addr": "test@example.com",
+        "subject": "[EXTERNAL] Re: Meeting Agenda",
+        "date": "2024-01-01 12:00:00",
+        "body": "Test body",
+    }
+    session.save()
+
+    response = client.get(reverse("suggest_cards"))
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert card.title in content
+
+
+def test_suggest_cards_matches_card_with_unchecked_in_title(client, board, column):
+    # Card was stored with the marker in its title
+    card = Card.objects.create(
+        column=column,
+        title="***UNCHECKED*** Status Update",
+        start_date=timezone.now(),
+        last_update_date=timezone.now(),
+    )
+
+    # Email subject is clean
+    session = client.session
+    session["parsed_email"] = {
+        "from_addr": "test@example.com",
+        "subject": "Re: Status Update",
+        "date": "2024-01-01 12:00:00",
+        "body": "Test body",
+    }
+    session.save()
+
+    response = client.get(reverse("suggest_cards"))
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert card.title in content
+
+
+def test_suggest_cards_references_header_matching(client, board, column):
+    # Create a card with an entry that has a known message ID
+    card = Card.objects.create(
+        column=column,
+        title="Unrelated Title",
+        start_date=timezone.now(),
+        last_update_date=timezone.now(),
+    )
+    Entry.objects.create(
+        card=card,
+        from_addr="original@example.com",
+        subject="Original Thread",
+        message_id="<thread-start@example.com>",
+        date=timezone.now(),
+        body="First message in thread",
+    )
+
+    # Email references the thread but has no in-reply-to and different subject
+    session = client.session
+    session["parsed_email"] = {
+        "from_addr": "test@example.com",
+        "subject": "Totally Different Subject",
+        "references": [
+            "<thread-start@example.com>",
+            "<middle@example.com>",
+        ],
+        "date": "2024-01-01 12:00:00",
+        "body": "Test body",
+    }
+    session.save()
+
+    response = client.get(reverse("suggest_cards"))
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert card.title in content
+    assert "Thread reference" in content
+
+
 def test_suggest_cards_no_duplicate_suggestions(client, board, column):
     # Create a card that would match multiple ways
     card = Card.objects.create(
