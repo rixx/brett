@@ -41,23 +41,26 @@ def _extract_body_from_pgp_payload(msg):
     """
     for part in msg.walk():
         if part.get_content_type() == "application/octet-stream":
-            # Try decoded payload (bytes)
-            payload = part.get_payload(decode=True)
-            if payload:
-                try:
-                    inner_msg = email.message_from_bytes(payload)
-                    for inner_part in inner_msg.walk():
-                        if inner_part.get_content_type() == "text/plain":
-                            inner_body = inner_part.get_payload(decode=True)
-                            if inner_body:
-                                return inner_body.decode("utf-8", errors="ignore")
-                except Exception:
-                    pass
-            # Try string payload (no transfer encoding)
+            # Try string payload first — since the outer message was parsed from
+            # a string, the payload preserves Unicode characters (umlauts etc.)
+            # Using get_payload(decode=True) would go through raw-unicode-escape
+            # encoding which loses non-ASCII chars when later decoded as UTF-8.
             payload_str = part.get_payload(decode=False)
             if isinstance(payload_str, str) and payload_str.strip():
                 try:
                     inner_msg = email.message_from_string(payload_str)
+                    for inner_part in inner_msg.walk():
+                        if inner_part.get_content_type() == "text/plain":
+                            inner_body = inner_part.get_payload(decode=False)
+                            if isinstance(inner_body, str) and inner_body.strip():
+                                return inner_body
+                except Exception:
+                    pass
+            # Fall back to bytes path for base64/QP-encoded payloads
+            payload = part.get_payload(decode=True)
+            if payload:
+                try:
+                    inner_msg = email.message_from_bytes(payload)
                     for inner_part in inner_msg.walk():
                         if inner_part.get_content_type() == "text/plain":
                             inner_body = inner_part.get_payload(decode=True)

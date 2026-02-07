@@ -212,11 +212,11 @@ Content-Type: multipart/mixed; boundary="----innermost"
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 8bit
 
-Hello,
+Hallo,
 
-This is the actual email body with multiple paragraphs.
+ich habe gehört, dass sich dieser auch mit dem Fall beschäftigt.
 
-Best regards
+Viele Grüße
 ------innermost
 Content-Type: application/pdf; name="document.pdf"
 Content-Disposition: attachment; filename="document.pdf"
@@ -231,8 +231,9 @@ JVBER
 
     result = parse_raw_email(raw_email)
     assert result["subject"] == "Re: Actual Subject"
-    assert "This is the actual email body" in result["body"]
-    assert "multiple paragraphs" in result["body"]
+    assert "gehört" in result["body"]
+    assert "beschäftigt" in result["body"]
+    assert "Grüße" in result["body"]
 
 
 def test_parse_pgp_email_placeholder_re_dots():
