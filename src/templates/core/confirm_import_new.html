@@ -20,7 +20,10 @@
             <strong>From:</strong> {{ parsed.from_addr }}
         </div>
         <div class="email-field">
-            <strong>Subject (will be card title):</strong> {{ parsed.subject }}
+            <strong>Subject:</strong> {{ parsed.subject }}
+        </div>
+        <div class="email-field">
+            <strong>Card title:</strong> {{ card_title }}
         </div>
         <div class="email-field">
             <strong>Date:</strong> {{ parsed.date|date:"Y-m-d H:i" }}
@@ -32,7 +35,7 @@
     </div>
 
     <div class="info-message">
-        <p>A new card will be created with the email subject as the title, and this email will be added as the first entry.</p>
+        <p>A new card will be created with the above title, and this email will be added as the first entry.</p>
     </div>
 
     <form method="post" class="confirm-form">

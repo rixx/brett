@@ -426,11 +426,13 @@ def confirm_import_new(request):
             if existing_entry:
                 board = Board.objects.first()
                 columns = board.columns.all() if board else Column.objects.none()
+                card_title = _clean_subject_for_matching(parsed.get("subject", "")) or "Untitled"
                 return render(
                     request,
                     "core/confirm_import_new.html",
                     {
                         "parsed": parsed,
+                        "card_title": card_title,
                         "columns": columns,
                         "error": f"This email has already been imported to card '{existing_entry.card.title}'",
                     },
@@ -472,10 +474,10 @@ def confirm_import_new(request):
             board, parsed.get("from_addr", ""), parsed.get("from_name")
         )
 
-        # Create new card with subject as title
+        # Create new card with cleaned subject as title
         card = Card.objects.create(
             column=column,
-            title=parsed.get("subject", "Untitled"),
+            title=_clean_subject_for_matching(parsed.get("subject", "")) or "Untitled",
         )
 
         # Create the entry
@@ -504,11 +506,13 @@ def confirm_import_new(request):
     board = Board.objects.first()
     columns = board.columns.all() if board else Column.objects.none()
     last_used_column_id = request.session.get("last_used_column_id")
+    card_title = _clean_subject_for_matching(parsed.get("subject", "")) or "Untitled"
     return render(
         request,
         "core/confirm_import_new.html",
         {
             "parsed": parsed,
+            "card_title": card_title,
             "columns": columns,
             "last_used_column_id": last_used_column_id,
         },
