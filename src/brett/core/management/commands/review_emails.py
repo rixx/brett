@@ -55,10 +55,16 @@ class Command(BaseCommand):
         skipped = 0
         copied = 0
 
+        progress = None
         try:
             from tqdm import tqdm
 
-            files = tqdm(files, desc="Reviewing emails")
+            progress = tqdm(
+                total=len(files),
+                desc="Reviewing emails",
+                unit="email",
+                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} elapsed, {remaining} left, {rate_fmt}{postfix}]",
+            )
         except ImportError:
             pass
 
@@ -72,10 +78,16 @@ class Command(BaseCommand):
                     self.style.WARNING(f"  No Message-ID: {mail_file.name}")
                 )
                 skipped += 1
+                if progress is not None:
+                    progress.total -= 1
+                    progress.refresh()
                 continue
 
             if Entry.objects.filter(message_id=message_id).exists():
                 skipped += 1
+                if progress is not None:
+                    progress.total -= 1
+                    progress.refresh()
                 continue
 
             subject = headers.get("Subject", "(no subject)")
@@ -98,6 +110,8 @@ class Command(BaseCommand):
                 tmp_path.unlink()
             self.stdout.write(self.style.SUCCESS("  Copied to clipboard."))
             copied += 1
+            if progress is not None:
+                progress.update(1)
 
             try:
                 input("  Press Enter for next email (Ctrl+C to stop)...")
