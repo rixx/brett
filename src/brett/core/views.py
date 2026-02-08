@@ -31,13 +31,41 @@ def board_detail(request, slug):
 def board_stats(request, slug):
     board = get_object_or_404(Board, slug=slug)
     core_team_ids = set(board.core_team.values_list("id", flat=True))
-    # Count emails per core team member across all cards on this board
+
+    session_key = f"board_stats_filter_{board.pk}"
+
+    # Handle clear
+    if "clear" in request.GET:
+        request.session.pop(session_key, None)
+        start_date = None
+        end_date = None
+    else:
+        start_date = request.GET.get("start_date") or None
+        end_date = request.GET.get("end_date") or None
+
+        if start_date or end_date:
+            # Explicit filter params — save to session
+            request.session[session_key] = {
+                "start_date": start_date or "",
+                "end_date": end_date or "",
+            }
+        elif session_key in request.session:
+            # No params — restore from session
+            saved = request.session[session_key]
+            start_date = saved.get("start_date") or None
+            end_date = saved.get("end_date") or None
+
+    entries = Entry.objects.filter(
+        card__column__board=board,
+        sender_id__in=core_team_ids,
+    )
+    if start_date:
+        entries = entries.filter(date__date__gte=start_date)
+    if end_date:
+        entries = entries.filter(date__date__lte=end_date)
+
     sender_stats = (
-        Entry.objects.filter(
-            card__column__board=board,
-            sender_id__in=core_team_ids,
-        )
-        .values("sender__id", "sender__name", "sender__email")
+        entries.values("sender__id", "sender__name", "sender__email")
         .annotate(email_count=Count("id"))
         .order_by("-email_count")
     )
@@ -52,7 +80,12 @@ def board_stats(request, slug):
     return render(
         request,
         "core/board_stats_partial.html",
-        {"board": board, "members": members},
+        {
+            "board": board,
+            "members": members,
+            "start_date": start_date or "",
+            "end_date": end_date or "",
+        },
     )
 
 

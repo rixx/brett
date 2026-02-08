@@ -843,8 +843,40 @@ dialog .card-detail {
 }
 
 .board-stats h2 {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
     font-size: 1.3rem;
+}
+
+.stats-filter {
+    margin-bottom: 1.5rem;
+}
+
+.stats-filter-fields {
+    display: flex;
+    gap: 1rem;
+    align-items: end;
+}
+
+.stats-filter label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    color: #666;
+    font-weight: 500;
+}
+
+.stats-filter input[type="date"] {
+    padding: 0.4rem 0.5rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-family: inherit;
+}
+
+.stats-filter input[type="date"]:focus {
+    outline: none;
+    border-color: #0066cc;
 }
 
 .stats-table {

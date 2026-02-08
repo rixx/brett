@@ -1,6 +1,23 @@
 <div class="board-stats">
     <h2>Team Stats</h2>
 
+    <form class="stats-filter" hx-get="{% url 'board_stats' board.slug %}" hx-target="#stats-dialog-content" hx-swap="innerHTML">
+        <div class="stats-filter-fields">
+            <label>
+                From
+                <input type="date" name="start_date" value="{{ start_date }}">
+            </label>
+            <label>
+                To
+                <input type="date" name="end_date" value="{{ end_date }}">
+            </label>
+            <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+            {% if start_date or end_date %}
+            <button type="submit" name="clear" value="1" class="btn btn-secondary btn-sm">Clear</button>
+            {% endif %}
+        </div>
+    </form>
+
     {% if members %}
     <table class="stats-table">
         <thead>

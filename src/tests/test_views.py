@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 from django.urls import reverse
 from django.utils import timezone
@@ -162,6 +164,107 @@ def test_board_stats_shows_core_team_only(client, board_with_columns_and_cards):
     content = response.content.decode()
     assert "Alice" in content
     assert "Bob" not in content
+
+
+def test_board_stats_date_filter(client, board_with_columns_and_cards):
+    board = board_with_columns_and_cards
+    col = board.columns.first()
+    card = col.cards.first()
+    corr = Correspondent.objects.create(
+        board=board, email="alice@example.com", name="Alice"
+    )
+    board.core_team.add(corr)
+    Entry.objects.create(
+        card=card,
+        sender=corr,
+        from_addr="alice@example.com",
+        subject="Old",
+        date=datetime.datetime(2024, 1, 15, tzinfo=datetime.timezone.utc),
+        body="old email",
+    )
+    Entry.objects.create(
+        card=card,
+        sender=corr,
+        from_addr="alice@example.com",
+        subject="New",
+        date=datetime.datetime(2024, 6, 15, tzinfo=datetime.timezone.utc),
+        body="new email",
+    )
+    # Filter to only the second half of the year
+    url = reverse("board_stats", kwargs={"slug": board.slug})
+    response = client.get(url, {"start_date": "2024-06-01"})
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "Alice" in content
+    assert ">1<" in content  # only one email in range
+
+
+def test_board_stats_date_filter_persists_in_session(
+    client, board_with_columns_and_cards
+):
+    board = board_with_columns_and_cards
+    col = board.columns.first()
+    card = col.cards.first()
+    corr = Correspondent.objects.create(
+        board=board, email="alice@example.com", name="Alice"
+    )
+    board.core_team.add(corr)
+    Entry.objects.create(
+        card=card,
+        sender=corr,
+        from_addr="alice@example.com",
+        subject="Old",
+        date=datetime.datetime(2024, 1, 15, tzinfo=datetime.timezone.utc),
+        body="old",
+    )
+    Entry.objects.create(
+        card=card,
+        sender=corr,
+        from_addr="alice@example.com",
+        subject="New",
+        date=datetime.datetime(2024, 6, 15, tzinfo=datetime.timezone.utc),
+        body="new",
+    )
+    url = reverse("board_stats", kwargs={"slug": board.slug})
+    # Set filter
+    client.get(url, {"start_date": "2024-06-01"})
+    # Reopen without params — should use saved filter
+    response = client.get(url)
+    content = response.content.decode()
+    assert ">1<" in content
+    assert 'value="2024-06-01"' in content
+
+
+def test_board_stats_clear_filter(client, board_with_columns_and_cards):
+    board = board_with_columns_and_cards
+    col = board.columns.first()
+    card = col.cards.first()
+    corr = Correspondent.objects.create(
+        board=board, email="alice@example.com", name="Alice"
+    )
+    board.core_team.add(corr)
+    Entry.objects.create(
+        card=card,
+        sender=corr,
+        from_addr="alice@example.com",
+        subject="Old",
+        date=datetime.datetime(2024, 1, 15, tzinfo=datetime.timezone.utc),
+        body="old",
+    )
+    Entry.objects.create(
+        card=card,
+        sender=corr,
+        from_addr="alice@example.com",
+        subject="New",
+        date=datetime.datetime(2024, 6, 15, tzinfo=datetime.timezone.utc),
+        body="new",
+    )
+    url = reverse("board_stats", kwargs={"slug": board.slug})
+    # Set filter then clear
+    client.get(url, {"start_date": "2024-06-01"})
+    response = client.get(url, {"clear": "1"})
+    content = response.content.decode()
+    assert ">2<" in content  # both emails now
 
 
 def test_board_detail_shows_new_card_button(client, board_with_columns_and_cards):
