@@ -50,6 +50,41 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Stats dialog
+    const statsDialog = document.getElementById('stats-dialog');
+
+    document.addEventListener('click', (event) => {
+        const statsBtn = event.target.closest('#open-stats-btn');
+        if (statsBtn && statsDialog) {
+            const url = statsBtn.dataset.statsUrl;
+            htmx.ajax('GET', url, {
+                target: '#stats-dialog-content',
+                swap: 'innerHTML'
+            }).then(() => {
+                statsDialog.showModal();
+            });
+        }
+
+        if (event.target.closest('#close-stats-btn')) {
+            statsDialog.close();
+        }
+    });
+
+    if (statsDialog) {
+        statsDialog.addEventListener('click', (event) => {
+            const rect = statsDialog.getBoundingClientRect();
+            const isInDialog = (
+                rect.top <= event.clientY &&
+                event.clientY <= rect.top + rect.height &&
+                rect.left <= event.clientX &&
+                event.clientX <= rect.left + rect.width
+            );
+            if (!isInDialog) {
+                statsDialog.close();
+            }
+        });
+    }
+
     // Drag and Drop functionality
     let draggedCard = null;
 

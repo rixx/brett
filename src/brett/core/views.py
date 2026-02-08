@@ -28,6 +28,34 @@ def board_detail(request, slug):
     )
 
 
+def board_stats(request, slug):
+    board = get_object_or_404(Board, slug=slug)
+    core_team_ids = set(board.core_team.values_list("id", flat=True))
+    # Count emails per core team member across all cards on this board
+    sender_stats = (
+        Entry.objects.filter(
+            card__column__board=board,
+            sender_id__in=core_team_ids,
+        )
+        .values("sender__id", "sender__name", "sender__email")
+        .annotate(email_count=Count("id"))
+        .order_by("-email_count")
+    )
+    members = [
+        {
+            "name": s["sender__name"] or s["sender__email"],
+            "email": s["sender__email"],
+            "email_count": s["email_count"],
+        }
+        for s in sender_stats
+    ]
+    return render(
+        request,
+        "core/board_stats_partial.html",
+        {"board": board, "members": members},
+    )
+
+
 def _get_related_cards(card, board):
     """Find cards on the same board that share non-core-team correspondents."""
     # Get this card's correspondent IDs from entries

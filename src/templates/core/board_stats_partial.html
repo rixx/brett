@@ -1,0 +1,29 @@
+<div class="board-stats">
+    <h2>Team Stats</h2>
+
+    {% if members %}
+    <table class="stats-table">
+        <thead>
+            <tr>
+                <th>Member</th>
+                <th>Emails</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for member in members %}
+            <tr>
+                <td>
+                    <span class="member-name">{{ member.name }}</span>
+                    {% if member.name != member.email %}
+                    <span class="member-email">{{ member.email }}</span>
+                    {% endif %}
+                </td>
+                <td class="email-count-cell">{{ member.email_count }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="no-entries">No emails imported yet.</p>
+    {% endif %}
+</div>

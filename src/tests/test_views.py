@@ -115,6 +115,55 @@ def test_board_detail_shows_entry_count(client, board_with_columns_and_cards):
     assert "0 messages" in content
 
 
+def test_board_stats_empty(client, board):
+    response = client.get(reverse("board_stats", kwargs={"slug": board.slug}))
+    assert response.status_code == 200
+    assert "No emails imported yet" in response.content.decode()
+
+
+def test_board_stats_shows_core_team_only(client, board_with_columns_and_cards):
+    board = board_with_columns_and_cards
+    col = board.columns.first()
+    card = col.cards.first()
+    corr1 = Correspondent.objects.create(
+        board=board, email="alice@example.com", name="Alice"
+    )
+    corr2 = Correspondent.objects.create(
+        board=board, email="bob@example.com", name="Bob"
+    )
+    # Only Alice is on core team
+    board.core_team.add(corr1)
+    Entry.objects.create(
+        card=card,
+        sender=corr1,
+        from_addr="alice@example.com",
+        subject="S1",
+        date=timezone.now(),
+        body="B1",
+    )
+    Entry.objects.create(
+        card=card,
+        sender=corr1,
+        from_addr="alice@example.com",
+        subject="S2",
+        date=timezone.now(),
+        body="B2",
+    )
+    Entry.objects.create(
+        card=card,
+        sender=corr2,
+        from_addr="bob@example.com",
+        subject="S3",
+        date=timezone.now(),
+        body="B3",
+    )
+    response = client.get(reverse("board_stats", kwargs={"slug": board.slug}))
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "Alice" in content
+    assert "Bob" not in content
+
+
 def test_board_detail_shows_new_card_button(client, board_with_columns_and_cards):
     response = client.get(
         reverse("board_detail", kwargs={"slug": board_with_columns_and_cards.slug})

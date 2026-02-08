@@ -836,3 +836,52 @@ dialog .card-detail {
 .import-actions {
     margin-top: 1.5rem;
 }
+
+/* Board Stats */
+.board-stats {
+    padding: 2rem;
+}
+
+.board-stats h2 {
+    margin-bottom: 1.5rem;
+    font-size: 1.3rem;
+}
+
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.stats-table th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-bottom: 2px solid #e0e0e0;
+    color: #666;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.stats-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.stats-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.member-name {
+    font-weight: 500;
+}
+
+.member-email {
+    display: block;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.email-count-cell {
+    font-weight: 600;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}

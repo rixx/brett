@@ -3,7 +3,9 @@
 
 {% block title %}{{ board.name }} - brett{% endblock %}
 
-{% block header %}<h1>{{ board.name }}</h1>{% endblock %}
+{% block header %}<h1>{{ board.name }}</h1>
+<button class="btn btn-secondary btn-sm" id="open-stats-btn" data-stats-url="{% url 'board_stats' board.slug %}">Team Stats</button>
+{% endblock %}
 
 {% block content %}
 {% csrf_token %}
@@ -42,6 +44,14 @@
     </div>
     {% endfor %}
 </div>
+
+<dialog id="stats-dialog">
+    <div class="dialog-header">
+        <span>{{ board.name }}</span>
+        <button class="dialog-close" id="close-stats-btn">&times;</button>
+    </div>
+    <div id="stats-dialog-content"></div>
+</dialog>
 
 <dialog id="card-dialog">
     <div class="dialog-header">
