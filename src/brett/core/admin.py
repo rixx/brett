@@ -1,4 +1,5 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.db import transaction
 
 from .models import Board, Card, Column, Correspondent, Entry, Tag
 
@@ -125,12 +126,75 @@ class TagAdmin(admin.ModelAdmin):
 
 @admin.register(Correspondent)
 class CorrespondentAdmin(admin.ModelAdmin):
-    list_display = ["email", "name", "board"]
+    list_display = ["email", "name", "board", "alias_count"]
     list_filter = ["board"]
     search_fields = ["email", "name"]
     readonly_fields = ["created_at", "updated_at"]
+    actions = ["merge_correspondents"]
     fieldsets = [
         (None, {"fields": ["board", "email", "name"]}),
         ("Aliases", {"fields": ["aliases"]}),
         ("Timestamps", {"fields": ["created_at", "updated_at"]}),
     ]
+
+    def alias_count(self, obj):
+        return len(obj.aliases) if obj.aliases else 0
+
+    alias_count.short_description = "Aliases"
+
+    @admin.action(description="Merge selected correspondents")
+    def merge_correspondents(self, request, queryset):
+        if queryset.count() < 2:
+            self.message_user(
+                request,
+                "Select at least 2 correspondents to merge.",
+                messages.ERROR,
+            )
+            return
+
+        boards = set(queryset.values_list("board_id", flat=True))
+        if len(boards) > 1:
+            self.message_user(
+                request,
+                "All selected correspondents must belong to the same board.",
+                messages.ERROR,
+            )
+            return
+
+        correspondents = list(queryset.order_by("pk"))
+        primary = correspondents[0]
+        secondaries = correspondents[1:]
+
+        with transaction.atomic():
+            for secondary in secondaries:
+                # Collect aliases
+                if secondary.email != primary.email and secondary.email not in (
+                    primary.aliases or []
+                ):
+                    primary.aliases = (primary.aliases or []) + [secondary.email]
+                for alias in secondary.aliases or []:
+                    if alias != primary.email and alias not in primary.aliases:
+                        primary.aliases.append(alias)
+
+                # Reassign entries
+                Entry.objects.filter(sender=secondary).update(sender=primary)
+
+                # Inherit name if primary has none
+                if not primary.name and secondary.name:
+                    primary.name = secondary.name
+
+                # Also update core_team references
+                for board in secondary.core_team_boards.all():
+                    board.core_team.remove(secondary)
+                    board.core_team.add(primary)
+
+                secondary.delete()
+
+            primary.save()
+
+        merged_count = len(secondaries)
+        self.message_user(
+            request,
+            f"Merged {merged_count + 1} correspondents into {primary}.",
+            messages.SUCCESS,
+        )
