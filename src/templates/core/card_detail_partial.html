@@ -103,7 +103,7 @@
                         </button>
                         {% endif %}
                     </div>
-                    <div class="entry-summary">{{ entry.summary }}</div>
+                    {% include "core/entry_summary_display.html" %}
                 </div>
 
                 <div class="entry-body" id="entry-body-{{ entry.id }}" style="display: none;">

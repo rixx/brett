@@ -591,6 +591,39 @@ main {
     font-size: 0.95rem;
 }
 
+.editable-summary {
+    cursor: pointer;
+    border: 1px dashed transparent;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    transition: border-color 0.2s;
+}
+
+.editable-summary:hover {
+    border-color: #0066cc;
+}
+
+.entry-summary-placeholder {
+    color: #999;
+    font-style: italic;
+}
+
+.entry-summary-edit {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex: 1;
+}
+
+.summary-edit-input {
+    flex: 1;
+    font-family: inherit;
+    font-size: 0.95rem;
+    padding: 0.35rem 0.5rem;
+    border: 2px solid #0066cc;
+    border-radius: 4px;
+}
+
 .entry-body {
     padding: 1rem;
     background-color: #fff;

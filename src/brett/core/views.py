@@ -218,6 +218,21 @@ def card_edit_description(request, card_id):
     return render(request, "core/card_description_edit.html", {"card": card})
 
 
+def entry_edit_summary(request, entry_id):
+    entry = get_object_or_404(Entry, pk=entry_id)
+
+    if request.method == "POST":
+        entry.summary = request.POST.get("summary", "").strip()
+        entry.save()
+        return render(
+            request,
+            "core/entry_summary_display.html",
+            {"entry": entry},
+        )
+
+    return render(request, "core/entry_summary_edit.html", {"entry": entry})
+
+
 def add_card(request, column_id):
     column = get_object_or_404(Column, pk=column_id)
 

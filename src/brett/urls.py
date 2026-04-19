@@ -32,6 +32,11 @@ urlpatterns = [
         name="card_edit_description",
     ),
     path("card/<int:card_id>/move/", views.move_card, name="move_card"),
+    path(
+        "entry/<int:entry_id>/edit-summary/",
+        views.entry_edit_summary,
+        name="entry_edit_summary",
+    ),
     path("column/<int:column_id>/add-card/", views.add_card, name="add_card"),
     path(
         "column/<int:column_id>/cancel-add-card/",

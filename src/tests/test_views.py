@@ -398,6 +398,47 @@ def test_card_edit_description_post_empty_description_updates(client, card):
     assert card.description == ""
 
 
+def test_entry_edit_summary_get_returns_form(client, entry):
+    response = client.get(reverse("entry_edit_summary", kwargs={"entry_id": entry.id}))
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert entry.summary in content
+    assert "input" in content
+    assert 'name="summary"' in content
+
+
+def test_entry_edit_summary_post_updates_entry(client, entry):
+    new_summary = "Looks good"
+    response = client.post(
+        reverse("entry_edit_summary", kwargs={"entry_id": entry.id}),
+        {"summary": new_summary},
+    )
+    assert response.status_code == 200
+    entry.refresh_from_db()
+    assert entry.summary == new_summary
+    assert new_summary in response.content.decode()
+
+
+def test_entry_edit_summary_post_empty_clears_summary(client, entry):
+    response = client.post(
+        reverse("entry_edit_summary", kwargs={"entry_id": entry.id}),
+        {"summary": ""},
+    )
+    assert response.status_code == 200
+    entry.refresh_from_db()
+    assert entry.summary == ""
+
+
+def test_entry_edit_summary_post_strips_whitespace(client, entry):
+    response = client.post(
+        reverse("entry_edit_summary", kwargs={"entry_id": entry.id}),
+        {"summary": "  +1  "},
+    )
+    assert response.status_code == 200
+    entry.refresh_from_db()
+    assert entry.summary == "+1"
+
+
 # Add card tests
 def test_add_card_get_returns_form(client, column):
     response = client.get(reverse("add_card", kwargs={"column_id": column.id}))

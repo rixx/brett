@@ -1,0 +1,27 @@
+<form
+    id="entry-summary-{{ entry.id }}"
+    class="entry-summary entry-summary-edit"
+    hx-post="{% url 'entry_edit_summary' entry.id %}"
+    hx-target="#entry-summary-{{ entry.id }}"
+    hx-swap="outerHTML"
+    onclick="event.stopPropagation()"
+>
+    {% csrf_token %}
+    <input
+        type="text"
+        name="summary"
+        value="{{ entry.summary }}"
+        maxlength="200"
+        class="summary-edit-input"
+        autofocus
+    >
+    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+    <button
+        type="button"
+        class="btn btn-secondary btn-sm"
+        hx-get="{% url 'card_detail' entry.card.id %}"
+        hx-target="#entry-summary-{{ entry.id }}"
+        hx-swap="outerHTML"
+        hx-select="#entry-summary-{{ entry.id }}"
+    >Cancel</button>
+</form>

@@ -1,0 +1,10 @@
+<div
+    id="entry-summary-{{ entry.id }}"
+    class="entry-summary editable-summary"
+    hx-get="{% url 'entry_edit_summary' entry.id %}"
+    hx-trigger="click"
+    hx-target="#entry-summary-{{ entry.id }}"
+    hx-swap="outerHTML"
+    onclick="event.stopPropagation()"
+    title="Click to edit summary"
+>{% if entry.summary %}{{ entry.summary }}{% else %}<span class="entry-summary-placeholder">+ add summary</span>{% endif %}</div>
