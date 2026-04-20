@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% load brett_list %}
+
+{% block title %}Cards - {{ board.name }} - brett{% endblock %}
+
+{% block header %}<h1>{{ board.name }} · Cards</h1>{% endblock %}
+
+{% block nav_board %}{% include "core/_board_nav.html" with active="cards" %}{% endblock %}
+
+{% block content %}
+<div class="list-view">
+    <form class="list-filter" method="get">
+        <div class="list-filter-row">
+            <label>
+                Search
+                <input type="search" name="q" value="{{ filters.q }}" placeholder="Title or description">
+            </label>
+            <label>
+                Column
+                <select name="column">
+                    <option value="">All</option>
+                    {% for col in columns %}
+                    <option value="{{ col.id }}" {% if filters.column == col.id|stringformat:"s" %}selected{% endif %}>{{ col.name }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                Correspondent
+                <select name="correspondent">
+                    <option value="">All</option>
+                    {% for c in correspondents %}
+                    <option value="{{ c.id }}" {% if filters.correspondent == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name|default:c.email }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                Min entries
+                <input type="number" name="min_entries" min="0" value="{{ filters.min_entries }}">
+            </label>
+            <label>
+                Updated after
+                <input type="date" name="updated_after" value="{{ filters.updated_after }}">
+            </label>
+            <label>
+                Updated before
+                <input type="date" name="updated_before" value="{{ filters.updated_before }}">
+            </label>
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="dir" value="{{ dir }}">
+            <div class="list-filter-actions">
+                <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+                <a href="{% url 'card_list' board.slug %}" class="btn btn-secondary btn-sm">Reset</a>
+            </div>
+        </div>
+    </form>
+
+    <div class="list-summary">{{ total }} card{{ total|pluralize }}</div>
+
+    {% if cards %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>{% sort_header "title" "Title" "asc" %}</th>
+                <th>{% sort_header "column" "Column" "asc" %}</th>
+                <th>{% sort_header "entry_count" "Entries" "desc" %}</th>
+                <th>{% sort_header "start_date" "Started" "desc" %}</th>
+                <th>{% sort_header "last_update_date" "Updated" "desc" %}</th>
+                <th>{% sort_header "created_at" "Created" "desc" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for card in cards %}
+            <tr>
+                <td><a href="{% url 'card_detail' card.id %}">{{ card.title }}</a></td>
+                <td>{{ card.column.name }}</td>
+                <td class="num">{{ card.entries_count }}</td>
+                <td>{% if card.start_date %}<span title="{{ card.start_date|date:'Y-m-d H:i' }}">{{ card.start_date|naturaltime }}</span>{% else %}&mdash;{% endif %}</td>
+                <td>{% if card.last_update_date %}<span title="{{ card.last_update_date|date:'Y-m-d H:i' }}">{{ card.last_update_date|naturaltime }}</span>{% else %}&mdash;{% endif %}</td>
+                <td><span title="{{ card.created_at|date:'Y-m-d H:i' }}">{{ card.created_at|naturaltime }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="no-entries">No cards match these filters.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -950,3 +950,131 @@ dialog .card-detail {
     text-align: right;
     font-variant-numeric: tabular-nums;
 }
+
+/* List views (cards, entries) */
+.nav-link-active {
+    background-color: #f0f7ff;
+    color: #0052a3;
+}
+
+.list-view {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.list-filter {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.list-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    align-items: end;
+}
+
+.list-filter label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    color: #666;
+    font-weight: 500;
+}
+
+.list-filter input,
+.list-filter select {
+    padding: 0.4rem 0.5rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-family: inherit;
+    min-width: 10rem;
+}
+
+.list-filter input[type="number"] {
+    min-width: 6rem;
+}
+
+.list-filter input:focus,
+.list-filter select:focus {
+    outline: none;
+    border-color: #0066cc;
+}
+
+.list-filter-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.list-summary {
+    color: #666;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.data-table {
+    width: 100%;
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+}
+
+.data-table th,
+.data-table td {
+    text-align: left;
+    padding: 0.6rem 0.9rem;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.9rem;
+    vertical-align: top;
+}
+
+.data-table thead th {
+    background-color: #f8f9fa;
+    color: #555;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.data-table thead th a {
+    color: inherit;
+}
+
+.data-table thead th a:hover {
+    color: #0066cc;
+    text-decoration: none;
+}
+
+.data-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.data-table td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.data-table .cell-subject,
+.data-table .cell-summary {
+    max-width: 22rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.no-entries {
+    padding: 2rem;
+    text-align: center;
+    color: #666;
+    font-style: italic;
+}

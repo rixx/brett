@@ -44,6 +44,8 @@ urlpatterns = [
         name="cancel_add_card",
     ),
     path("<slug:slug>/stats/", views.board_stats, name="board_stats"),
+    path("<slug:slug>/cards/", views.card_list, name="card_list"),
+    path("<slug:slug>/entries/", views.entry_list, name="entry_list"),
     path("<slug:slug>/", views.board_detail, name="board_detail"),
     path("", views.board_list, name="board_list"),
 ]

@@ -7,6 +7,8 @@
 <h1><a href="{% url 'board_detail' board.slug %}">{{ board.name }}</a></h1>
 {% endblock %}
 
+{% block nav_board %}{% include "core/_board_nav.html" %}{% endblock %}
+
 {% block content %}
 {% include "core/card_detail_partial.html" %}
 {% endblock %}

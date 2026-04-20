@@ -28,6 +28,169 @@ def board_detail(request, slug):
     )
 
 
+CARD_SORT_FIELDS = {
+    "title": "title",
+    "column": "column__position",
+    "start_date": "start_date",
+    "last_update_date": "last_update_date",
+    "entry_count": "entries_count",
+    "created_at": "created_at",
+}
+
+ENTRY_SORT_FIELDS = {
+    "date": "date",
+    "subject": "subject",
+    "sender": "sender__name",
+    "card": "card__title",
+    "column": "card__column__position",
+    "summary": "summary",
+}
+
+
+def _apply_sort(queryset, sort_map, sort_key, direction, default):
+    field = sort_map.get(sort_key, sort_map[default])
+    prefix = "-" if direction == "desc" else ""
+    return queryset.order_by(f"{prefix}{field}")
+
+
+def card_list(request, slug):
+    board = get_object_or_404(Board, slug=slug)
+
+    q = request.GET.get("q", "").strip()
+    column_id = request.GET.get("column", "").strip()
+    correspondent_id = request.GET.get("correspondent", "").strip()
+    min_entries = request.GET.get("min_entries", "").strip()
+    updated_after = request.GET.get("updated_after", "").strip()
+    updated_before = request.GET.get("updated_before", "").strip()
+    sort = request.GET.get("sort", "last_update_date")
+    direction = request.GET.get("dir", "desc")
+    if sort not in CARD_SORT_FIELDS:
+        sort = "last_update_date"
+    if direction not in ("asc", "desc"):
+        direction = "desc"
+
+    cards = (
+        Card.objects.filter(column__board=board)
+        .select_related("column")
+        .annotate(entries_count=Count("entries", distinct=True))
+    )
+
+    if q:
+        cards = cards.filter(Q(title__icontains=q) | Q(description__icontains=q))
+    if column_id:
+        cards = cards.filter(column_id=column_id)
+    if correspondent_id:
+        cards = cards.filter(entries__sender_id=correspondent_id).distinct()
+    if min_entries:
+        try:
+            cards = cards.filter(entries_count__gte=int(min_entries))
+        except ValueError:
+            pass
+    if updated_after:
+        cards = cards.filter(last_update_date__date__gte=updated_after)
+    if updated_before:
+        cards = cards.filter(last_update_date__date__lte=updated_before)
+
+    cards = _apply_sort(cards, CARD_SORT_FIELDS, sort, direction, "last_update_date")
+
+    columns = board.columns.all()
+    correspondents = board.correspondents.order_by("name", "email")
+
+    return render(
+        request,
+        "core/card_list.html",
+        {
+            "board": board,
+            "cards": cards,
+            "columns": columns,
+            "correspondents": correspondents,
+            "filters": {
+                "q": q,
+                "column": column_id,
+                "correspondent": correspondent_id,
+                "min_entries": min_entries,
+                "updated_after": updated_after,
+                "updated_before": updated_before,
+            },
+            "sort": sort,
+            "dir": direction,
+            "total": cards.count(),
+        },
+    )
+
+
+def entry_list(request, slug):
+    board = get_object_or_404(Board, slug=slug)
+
+    q = request.GET.get("q", "").strip()
+    sender_id = request.GET.get("sender", "").strip()
+    card_id = request.GET.get("card", "").strip()
+    column_id = request.GET.get("column", "").strip()
+    date_from = request.GET.get("date_from", "").strip()
+    date_to = request.GET.get("date_to", "").strip()
+    has_summary = request.GET.get("has_summary", "").strip()
+    sort = request.GET.get("sort", "date")
+    direction = request.GET.get("dir", "desc")
+    if sort not in ENTRY_SORT_FIELDS:
+        sort = "date"
+    if direction not in ("asc", "desc"):
+        direction = "desc"
+
+    entries = Entry.objects.filter(card__column__board=board).select_related(
+        "sender", "card", "card__column"
+    )
+
+    if q:
+        entries = entries.filter(
+            Q(subject__icontains=q)
+            | Q(body__icontains=q)
+            | Q(summary__icontains=q)
+            | Q(from_addr__icontains=q)
+        )
+    if sender_id:
+        entries = entries.filter(sender_id=sender_id)
+    if card_id:
+        entries = entries.filter(card_id=card_id)
+    if column_id:
+        entries = entries.filter(card__column_id=column_id)
+    if date_from:
+        entries = entries.filter(date__date__gte=date_from)
+    if date_to:
+        entries = entries.filter(date__date__lte=date_to)
+    if has_summary == "yes":
+        entries = entries.exclude(summary="")
+    elif has_summary == "no":
+        entries = entries.filter(summary="")
+
+    entries = _apply_sort(entries, ENTRY_SORT_FIELDS, sort, direction, "date")
+
+    columns = board.columns.all()
+    correspondents = board.correspondents.order_by("name", "email")
+
+    return render(
+        request,
+        "core/entry_list.html",
+        {
+            "board": board,
+            "entries": entries,
+            "columns": columns,
+            "correspondents": correspondents,
+            "filters": {
+                "q": q,
+                "sender": sender_id,
+                "card": card_id,
+                "column": column_id,
+                "date_from": date_from,
+                "date_to": date_to,
+                "has_summary": has_summary,
+            },
+            "sort": sort,
+            "dir": direction,
+            "total": entries.count(),
+        },
+    )
+
+
 def board_stats(request, slug):
     board = get_object_or_404(Board, slug=slug)
     core_team_ids = set(board.core_team.values_list("id", flat=True))

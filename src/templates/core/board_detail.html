@@ -7,6 +7,8 @@
 <button class="btn btn-secondary btn-sm" id="open-stats-btn" data-stats-url="{% url 'board_stats' board.slug %}">Team Stats</button>
 {% endblock %}
 
+{% block nav_board %}{% include "core/_board_nav.html" with active="board" %}{% endblock %}
+
 {% block content %}
 {% csrf_token %}
 <div class="board-columns">

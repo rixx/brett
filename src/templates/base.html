@@ -16,6 +16,7 @@
             {% endblock %}
             <nav>
                 <a href="/" class="nav-link">Home</a>
+                {% block nav_board %}{% endblock %}
                 <a href="{% url 'import_email' %}" class="nav-link">+ Import Email</a>
             </nav>
         </div>
