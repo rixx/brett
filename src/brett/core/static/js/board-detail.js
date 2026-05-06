@@ -136,8 +136,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const newColumnId = dropZone.dataset.columnId;
             const oldDropZone = draggedCard.parentElement;
 
-            // Optimistic UI update - move card immediately
-            dropZone.appendChild(draggedCard);
+            // Optimistic UI update - insert at top of column so the user can
+            // continue acting on the card without scrolling
+            dropZone.prepend(draggedCard);
 
             // Get CSRF token
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
