@@ -11,6 +11,8 @@ from django.core.management.base import BaseCommand
 
 from brett.core.models import Entry
 
+EPOCH = datetime.min.replace(tzinfo=timezone.utc)
+
 PGP_BLOCK_RE = re.compile(
     r"-----BEGIN PGP MESSAGE-----\n.*?\n-----END PGP MESSAGE-----",
     re.DOTALL,
@@ -25,10 +27,46 @@ def _read_email_file(path):
     like windows-1252).
     """
     raw = path.read_bytes()
+    return _decode(raw)
+
+
+def _decode(raw):
     try:
         return raw.decode("utf-8")
     except UnicodeDecodeError:
         return raw.decode("latin-1")
+
+
+def _read_email_headers(path, max_bytes=131_072):
+    """Read only the header block of an email file.
+
+    Stops at the first blank line instead of pulling multi-megabyte bodies
+    into memory, which is what makes the initial scan slow on maildirs with
+    attachments.
+    """
+    chunks = []
+    read = 0
+    with path.open("rb") as f:
+        while read < max_bytes:
+            chunk = f.read(8192)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            read += len(chunk)
+            buf = b"".join(chunks)
+            match = re.search(rb"\r?\n\r?\n", buf)
+            if match:
+                return _decode(buf[: match.start()])
+    return _decode(b"".join(chunks))
+
+
+def _maildir_key(path):
+    """Stable identity of a maildir file.
+
+    Names look like ``<unique>:2,<flags>``; the flag suffix changes when the
+    mail is read or replied to, the unique part does not.
+    """
+    return path.name.split(":")[0]
 
 
 class Command(BaseCommand):
@@ -39,6 +77,11 @@ class Command(BaseCommand):
             "directory",
             type=str,
             help="Path to mail directory (e.g. ~/.local/share/mail/account/folder/cur/)",
+        )
+        parser.add_argument(
+            "--rescan",
+            action="store_true",
+            help="Ignore recorded source filenames and re-read every file's headers",
         )
 
     def unwrap_pgp_mime(self, content):
@@ -180,6 +223,21 @@ class Command(BaseCommand):
         """Replace all PGP message blocks in content with their decrypted text."""
         return PGP_BLOCK_RE.sub(lambda m: self.decrypt_pgp(m.group(0)), content)
 
+    def scan_headers(self, header_parser, path):
+        """Extract the fields the review loop needs from a file's headers."""
+        headers = header_parser.parsestr(_read_email_headers(path))
+        try:
+            date = parsedate_to_datetime(headers["Date"])
+            if date.tzinfo is None:
+                date = date.replace(tzinfo=timezone.utc)
+        except Exception:
+            date = None
+        return {
+            "message_id": (headers.get("Message-ID") or "").strip(),
+            "date": date,
+            "subject": headers.get("Subject", "(no subject)"),
+        }
+
     def handle(self, *args, **options):
         directory = Path(options["directory"]).expanduser()
         if not directory.is_dir():
@@ -192,29 +250,63 @@ class Command(BaseCommand):
             return
 
         header_parser = HeaderParser()
+        entry_ids = dict(
+            Entry.objects.exclude(message_id="").values_list("message_id", "id")
+        )
+        known_files = (
+            set()
+            if options["rescan"]
+            else set(
+                Entry.objects.exclude(source_filename="").values_list(
+                    "source_filename", flat=True
+                )
+            )
+        )
 
-        def _date_key(path):
-            headers = header_parser.parsestr(_read_email_file(path))
-            try:
-                dt = parsedate_to_datetime(headers["Date"])
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
-                return dt
-            except Exception:
-                return datetime.min.replace(tzinfo=timezone.utc)
-
-        self.stdout.write(f"Sorting {len(unsorted)} emails by date...")
-        files = sorted(unsorted, key=_date_key)
+        self.stdout.write(f"Scanning {len(unsorted)} emails...")
+        pending = []
+        learned = []
         already_imported = 0
         no_message_id = 0
+        parsed = 0
         copied = 0
+
+        for path in unsorted:
+            key = _maildir_key(path)
+            if key in known_files:
+                already_imported += 1
+                continue
+
+            scanned = self.scan_headers(header_parser, path)
+            parsed += 1
+            message_id = scanned["message_id"]
+            if not message_id:
+                self.stdout.write(self.style.WARNING(f"  No Message-ID: {path.name}"))
+                no_message_id += 1
+                continue
+            if message_id in entry_ids:
+                # Remember which file this entry came from, so the next run
+                # can skip it without opening it.
+                learned.append(Entry(pk=entry_ids[message_id], source_filename=key))
+                already_imported += 1
+                continue
+            pending.append(
+                (scanned["date"] or EPOCH, path, scanned["subject"], message_id)
+            )
+
+        if learned:
+            Entry.objects.bulk_update(learned, ["source_filename"])
+            self.stdout.write(f"  Recorded source files for {len(learned)} entries.")
+        if parsed:
+            self.stdout.write(f"  Read headers of {parsed} files.")
+        pending.sort(key=lambda item: item[0])
 
         progress = None
         try:
             from tqdm import tqdm
 
             progress = tqdm(
-                total=len(files),
+                total=len(pending),
                 desc="Reviewing emails",
                 unit="email",
                 bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} elapsed, {remaining} left, {rate_fmt}{postfix}]",
@@ -222,29 +314,8 @@ class Command(BaseCommand):
         except ImportError:
             pass
 
-        for mail_file in files:
+        for _date, mail_file, subject, message_id in pending:
             content = _read_email_file(mail_file)
-            headers = header_parser.parsestr(content)
-
-            message_id = headers.get("Message-ID", "").strip()
-            if not message_id:
-                self.stdout.write(
-                    self.style.WARNING(f"  No Message-ID: {mail_file.name}")
-                )
-                no_message_id += 1
-                if progress is not None:
-                    progress.total -= 1
-                    progress.refresh()
-                continue
-
-            if Entry.objects.filter(message_id=message_id).exists():
-                already_imported += 1
-                if progress is not None:
-                    progress.total -= 1
-                    progress.refresh()
-                continue
-
-            subject = headers.get("Subject", "(no subject)")
             self.stdout.write(f"\n{mail_file.name}")
             self.stdout.write(f"  Subject: {subject}")
             if PGP_BLOCK_RE.search(content):
@@ -285,7 +356,13 @@ class Command(BaseCommand):
                 self.stdout.write("")
                 break
 
-        total_emails = len(files) - no_message_id
+            # If the email was ingested just now, record which file it came
+            # from while we still know.
+            Entry.objects.filter(message_id=message_id, source_filename="").update(
+                source_filename=_maildir_key(mail_file)
+            )
+
+        total_emails = len(unsorted) - no_message_id
         total_imported = already_imported + copied
         remaining = total_emails - total_imported
         session_pct = (copied / total_emails * 100) if total_emails else 0

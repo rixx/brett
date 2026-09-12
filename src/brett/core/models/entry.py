@@ -25,6 +25,12 @@ class Entry(BrettModel):
     summary = models.CharField(
         max_length=200, blank=True, help_text="Very short summary, e.g., '+1'"
     )
+    source_filename = models.CharField(
+        max_length=255,
+        blank=True,
+        db_index=True,
+        help_text="Maildir unique id this entry was imported from, without the flag suffix. Set lazily by the review_emails command so later runs can skip the file without reading it.",
+    )
     tags = models.ManyToManyField("Tag", related_name="entries", blank=True)
 
     class Meta:

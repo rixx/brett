@@ -1,4 +1,13 @@
-from brett.core.management.commands.review_emails import Command
+from io import StringIO
+
+import pytest
+from django.core.management import call_command
+
+from brett.core.management.commands import review_emails
+from brett.core.management.commands.review_emails import (
+    Command,
+    _read_email_headers,
+)
 
 
 def make_pgp_mime_email(octet_stream_body, subject="...", extra_headers=""):
@@ -149,3 +158,108 @@ class TestStripLargeAttachments:
         result = self.cmd.strip_large_attachments(content)
         # The large payload should still be present (not stripped)
         assert large_payload in result
+
+
+class TestReadEmailHeaders:
+    def test_stops_at_blank_line(self, tmp_path):
+        path = tmp_path / "mail"
+        path.write_bytes(
+            b"Message-ID: <1@example.com>\nSubject: Test\n\n" + b"X" * 200_000
+        )
+        assert _read_email_headers(path) == "Message-ID: <1@example.com>\nSubject: Test"
+
+    def test_crlf_separator(self, tmp_path):
+        path = tmp_path / "mail"
+        path.write_bytes(b"Message-ID: <2@example.com>\r\n\r\nbody")
+        assert _read_email_headers(path) == "Message-ID: <2@example.com>"
+
+    def test_separator_across_chunk_boundary(self, tmp_path):
+        path = tmp_path / "mail"
+        path.write_bytes(
+            b"A: " + b"y" * 8190 + b"\nMessage-ID: <3@example.com>\n\nbody"
+        )
+        assert _read_email_headers(path).endswith("Message-ID: <3@example.com>")
+
+    def test_no_blank_line(self, tmp_path):
+        path = tmp_path / "mail"
+        path.write_bytes(b"Message-ID: <4@example.com>")
+        assert _read_email_headers(path) == "Message-ID: <4@example.com>"
+
+    def test_latin1_fallback(self, tmp_path):
+        path = tmp_path / "mail"
+        path.write_bytes(b"From: \xe4@example.com\n\nbody")
+        assert _read_email_headers(path) == "From: \xe4@example.com"
+
+
+MAILDIR_FILE = "1700000000.M1P2.testhost,U=1"
+
+
+def write_mail(
+    directory, message_id, flags=":2,S", date="Mon, 1 Jan 2024 12:00:00 +0000"
+):
+    path = directory / (MAILDIR_FILE + flags)
+    path.write_text(
+        f"From: sender@example.com\n"
+        f"Subject: Test Subject\n"
+        f"Date: {date}\n"
+        f"Message-ID: {message_id}\n"
+        f"\n"
+        f"body\n"
+    )
+    return path
+
+
+@pytest.mark.django_db
+class TestSourceFilenameCache:
+    def test_records_source_filename_for_imported_entry(self, tmp_path, entry):
+        write_mail(tmp_path, entry.message_id)
+
+        call_command("review_emails", str(tmp_path), stdout=StringIO())
+
+        entry.refresh_from_db()
+        assert entry.source_filename == MAILDIR_FILE
+
+    def test_known_filename_skips_reading_file(self, tmp_path, entry, monkeypatch):
+        write_mail(tmp_path, entry.message_id)
+        entry.source_filename = MAILDIR_FILE
+        entry.save()
+
+        reads = []
+        monkeypatch.setattr(
+            review_emails, "_read_email_headers", lambda path, **kw: reads.append(path)
+        )
+
+        out = StringIO()
+        call_command("review_emails", str(tmp_path), stdout=out)
+
+        assert reads == []
+        assert "1/1 emails imported" in out.getvalue()
+
+    def test_flag_change_still_matches(self, tmp_path, entry, monkeypatch):
+        write_mail(tmp_path, entry.message_id, flags=":2,RS")
+        entry.source_filename = MAILDIR_FILE
+        entry.save()
+
+        reads = []
+        monkeypatch.setattr(
+            review_emails, "_read_email_headers", lambda path, **kw: reads.append(path)
+        )
+        call_command("review_emails", str(tmp_path), stdout=StringIO())
+
+        assert reads == []
+
+    def test_rescan_ignores_known_filenames(self, tmp_path, entry, monkeypatch):
+        write_mail(tmp_path, entry.message_id)
+        entry.source_filename = MAILDIR_FILE
+        entry.save()
+
+        reads = []
+        real = review_emails._read_email_headers
+        monkeypatch.setattr(
+            review_emails,
+            "_read_email_headers",
+            lambda path, **kw: (reads.append(path), real(path, **kw))[1],
+        )
+        call_command("review_emails", str(tmp_path), "--rescan", stdout=StringIO())
+
+        assert len(reads) == 1
