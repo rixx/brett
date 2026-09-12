@@ -4,14 +4,12 @@ import subprocess
 import tempfile
 from datetime import datetime, timezone
 from email.parser import HeaderParser
-from email.utils import parsedate_to_datetime
+from email.utils import format_datetime, parsedate_to_datetime
 from pathlib import Path
 
 from django.core.management.base import BaseCommand
 
 from brett.core.models import Entry
-
-EPOCH = datetime.min.replace(tzinfo=timezone.utc)
 
 PGP_BLOCK_RE = re.compile(
     r"-----BEGIN PGP MESSAGE-----\n.*?\n-----END PGP MESSAGE-----",
@@ -67,6 +65,24 @@ def _maildir_key(path):
     mail is read or replied to, the unique part does not.
     """
     return path.name.split(":")[0]
+
+
+def _synthetic_message_id(key):
+    """Stand-in identity for mail that carries no Message-ID.
+
+    Some senders never emit one (office scanners, scripts building messages
+    with Python's email package). The maildir unique id is stable enough to
+    dedup on, so it becomes the identity and is injected into the copied mail
+    so ingestion stores it too.
+    """
+    return f"<{key}@maildir.invalid>"
+
+
+def _inject_headers(content, extra):
+    """Prepend headers the original mail was missing."""
+    if not extra:
+        return content
+    return "".join(f"{name}: {value}\n" for name, value in extra.items()) + content
 
 
 class Command(BaseCommand):
@@ -224,18 +240,31 @@ class Command(BaseCommand):
         return PGP_BLOCK_RE.sub(lambda m: self.decrypt_pgp(m.group(0)), content)
 
     def scan_headers(self, header_parser, path):
-        """Extract the fields the review loop needs from a file's headers."""
+        """Extract the fields the review loop needs from a file's headers.
+
+        Missing Message-ID and Date are filled in from the maildir file
+        itself and collected in "inject", to be added to the copied mail.
+        """
         headers = header_parser.parsestr(_read_email_headers(path))
+        inject = {}
         try:
             date = parsedate_to_datetime(headers["Date"])
             if date.tzinfo is None:
                 date = date.replace(tzinfo=timezone.utc)
         except Exception:
-            date = None
+            date = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
+            inject["Date"] = format_datetime(date)
+
+        message_id = (headers.get("Message-ID") or "").strip()
+        if not message_id:
+            message_id = _synthetic_message_id(_maildir_key(path))
+            inject["Message-ID"] = message_id
+
         return {
-            "message_id": (headers.get("Message-ID") or "").strip(),
+            "message_id": message_id,
             "date": date,
             "subject": headers.get("Subject", "(no subject)"),
+            "inject": inject,
         }
 
     def handle(self, *args, **options):
@@ -267,7 +296,7 @@ class Command(BaseCommand):
         pending = []
         learned = []
         already_imported = 0
-        no_message_id = 0
+        synthesized = 0
         parsed = 0
         copied = 0
 
@@ -280,25 +309,25 @@ class Command(BaseCommand):
             scanned = self.scan_headers(header_parser, path)
             parsed += 1
             message_id = scanned["message_id"]
-            if not message_id:
-                self.stdout.write(self.style.WARNING(f"  No Message-ID: {path.name}"))
-                no_message_id += 1
-                continue
+            if "Message-ID" in scanned["inject"]:
+                synthesized += 1
             if message_id in entry_ids:
                 # Remember which file this entry came from, so the next run
                 # can skip it without opening it.
                 learned.append(Entry(pk=entry_ids[message_id], source_filename=key))
                 already_imported += 1
                 continue
-            pending.append(
-                (scanned["date"] or EPOCH, path, scanned["subject"], message_id)
-            )
+            pending.append((scanned["date"], path, scanned))
 
         if learned:
             Entry.objects.bulk_update(learned, ["source_filename"])
             self.stdout.write(f"  Recorded source files for {len(learned)} entries.")
         if parsed:
             self.stdout.write(f"  Read headers of {parsed} files.")
+        if synthesized:
+            self.stdout.write(
+                f"  Synthesized a Message-ID for {synthesized} files that had none."
+            )
         pending.sort(key=lambda item: item[0])
 
         progress = None
@@ -314,10 +343,15 @@ class Command(BaseCommand):
         except ImportError:
             pass
 
-        for _date, mail_file, subject, message_id in pending:
-            content = _read_email_file(mail_file)
+        for _date, mail_file, scanned in pending:
+            message_id = scanned["message_id"]
+            content = _inject_headers(_read_email_file(mail_file), scanned["inject"])
             self.stdout.write(f"\n{mail_file.name}")
-            self.stdout.write(f"  Subject: {subject}")
+            self.stdout.write(f"  Subject: {scanned['subject']}")
+            if scanned["inject"]:
+                self.stdout.write(
+                    f"  Added missing headers: {', '.join(scanned['inject'])}"
+                )
             if PGP_BLOCK_RE.search(content):
                 content = self.decrypt_pgp_blocks(content)
                 content, pgp_status = self.unwrap_pgp_mime(content)
@@ -362,7 +396,7 @@ class Command(BaseCommand):
                 source_filename=_maildir_key(mail_file)
             )
 
-        total_emails = len(unsorted) - no_message_id
+        total_emails = len(unsorted)
         total_imported = already_imported + copied
         remaining = total_emails - total_imported
         session_pct = (copied / total_emails * 100) if total_emails else 0

@@ -1,3 +1,8 @@
+import email
+import os
+from datetime import datetime, timezone
+from email.parser import HeaderParser
+from email.utils import parsedate_to_datetime
 from io import StringIO
 
 import pytest
@@ -6,6 +11,7 @@ from django.core.management import call_command
 from brett.core.management.commands import review_emails
 from brett.core.management.commands.review_emails import (
     Command,
+    _inject_headers,
     _read_email_headers,
 )
 
@@ -263,3 +269,61 @@ class TestSourceFilenameCache:
         call_command("review_emails", str(tmp_path), "--rescan", stdout=StringIO())
 
         assert len(reads) == 1
+
+
+class TestMissingHeaders:
+    def scan(self, path):
+        return Command().scan_headers(HeaderParser(), path)
+
+    def test_synthesizes_message_id_from_filename(self, tmp_path):
+        path = tmp_path / (MAILDIR_FILE + ":2,S")
+        path.write_text("From: scanner@example.com\nSubject: Scan Job\n\nbody\n")
+
+        scanned = self.scan(path)
+
+        assert scanned["message_id"] == f"<{MAILDIR_FILE}@maildir.invalid>"
+        assert scanned["inject"]["Message-ID"] == scanned["message_id"]
+
+    def test_synthetic_id_survives_flag_change(self, tmp_path):
+        seen = set()
+        for flags in (":2,S", ":2,RS"):
+            path = tmp_path / (MAILDIR_FILE + flags)
+            path.write_text("From: scanner@example.com\n\nbody\n")
+            seen.add(self.scan(path)["message_id"])
+            path.unlink()
+
+        assert len(seen) == 1
+
+    def test_keeps_existing_message_id(self, tmp_path):
+        path = tmp_path / (MAILDIR_FILE + ":2,S")
+        path.write_text("Message-ID: <real@example.com>\nSubject: Test\n\nbody\n")
+
+        scanned = self.scan(path)
+
+        assert scanned["message_id"] == "<real@example.com>"
+        assert "Message-ID" not in scanned["inject"]
+
+    def test_missing_date_falls_back_to_mtime(self, tmp_path):
+        path = tmp_path / (MAILDIR_FILE + ":2,S")
+        path.write_text("Message-ID: <real@example.com>\n\nbody\n")
+        os.utime(path, (1700000000, 1700000000))
+
+        scanned = self.scan(path)
+
+        assert scanned["date"] == datetime.fromtimestamp(1700000000, timezone.utc)
+        assert "Date" in scanned["inject"]
+
+    def test_injected_headers_parse_back(self, tmp_path):
+        path = tmp_path / (MAILDIR_FILE + ":2,S")
+        path.write_text("From: scanner@example.com\nSubject: Scan Job\n\nbody\n")
+        scanned = self.scan(path)
+
+        content = _inject_headers(path.read_text(), scanned["inject"])
+        parsed = email.message_from_string(content)
+
+        assert parsed["Message-ID"] == scanned["message_id"]
+        assert parsedate_to_datetime(parsed["Date"]) == scanned["date"].replace(
+            microsecond=0
+        )
+        assert parsed["Subject"] == "Scan Job"
+        assert parsed.get_payload() == "body\n"
