@@ -446,8 +446,6 @@ def move_card(request, card_id):
     card.column = new_column
     card.save()
 
-    request.session["last_used_column_id"] = new_column.id
-
     if request.headers.get("HX-Request") == "true":
         return render(
             request,
@@ -761,6 +759,11 @@ def confirm_import(request, card_id):
     return render(request, "core/confirm_import.html", {"card": card, "parsed": parsed})
 
 
+def _default_column(board):
+    """Column new cards land in: the todo column, else the first one."""
+    return board.columns.filter(name__iexact="todo").first() or board.columns.first()
+
+
 def confirm_import_new(request):
     """Import an email - step 3: confirm and create entry for new card."""
     parsed = request.session.get("parsed_email")
@@ -802,7 +805,7 @@ def confirm_import_new(request):
         if column_id:
             column = get_object_or_404(Column, pk=column_id, board=board)
         else:
-            column = board.columns.first()
+            column = _default_column(board)
 
         if not column:
             return render(
@@ -810,8 +813,6 @@ def confirm_import_new(request):
                 "core/error.html",
                 {"error": "No column found. Please create a column first."},
             )
-
-        request.session["last_used_column_id"] = column.id
 
         # Parse date if it's a string
         email_date = parsed.get("date")
@@ -856,7 +857,7 @@ def confirm_import_new(request):
 
     board = Board.objects.first()
     columns = board.columns.all() if board else Column.objects.none()
-    last_used_column_id = request.session.get("last_used_column_id")
+    default_column = _default_column(board) if board else None
     card_title = _clean_subject_for_matching(parsed.get("subject", "")) or "Untitled"
     return render(
         request,
@@ -865,6 +866,6 @@ def confirm_import_new(request):
             "parsed": parsed,
             "card_title": card_title,
             "columns": columns,
-            "last_used_column_id": last_used_column_id,
+            "default_column_id": default_column.id if default_column else None,
         },
     )

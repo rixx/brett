@@ -1186,6 +1186,47 @@ def test_confirm_import_new_creates_card_and_entry(client, board, column):
     assert Entry.objects.count() == initial_entry_count + 1
 
 
+def test_confirm_import_new_preselects_todo_column(client, board):
+    # Todo is not the first column by position
+    Column.objects.create(board=board, name="Inbox", position=0)
+    todo = Column.objects.create(board=board, name="Todo", position=3)
+
+    session = client.session
+    session["parsed_email"] = {
+        "from_addr": "test@example.com",
+        "subject": "New Email Subject",
+        "message_id": "<todo-preset@example.com>",
+        "date": timezone.now().isoformat(),
+        "body": "New email body",
+        "raw_message": "Full raw message",
+    }
+    session.save()
+
+    response = client.get(reverse("confirm_import_new"))
+    assert response.status_code == 200
+    assert f'value="{todo.id}" selected' in response.content.decode()
+
+
+def test_confirm_import_new_defaults_to_todo_column(client, board):
+    Column.objects.create(board=board, name="Inbox", position=0)
+    todo = Column.objects.create(board=board, name="Todo", position=3)
+
+    session = client.session
+    session["parsed_email"] = {
+        "from_addr": "test@example.com",
+        "subject": "New Email Subject",
+        "message_id": "<todo-default@example.com>",
+        "date": timezone.now().isoformat(),
+        "body": "New email body",
+        "raw_message": "Full raw message",
+    }
+    session.save()
+
+    response = client.post(reverse("confirm_import_new"))
+    assert response.status_code == 302
+    assert Card.objects.latest("created_at").column == todo
+
+
 def test_confirm_import_new_rejects_duplicate_message_id(client, board, column, card):
     # Create an existing entry with a specific message-ID
     existing_message_id = "<duplicate456@example.com>"
