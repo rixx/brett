@@ -564,11 +564,16 @@ def suggest_cards(request):
 
     # First, try to find card by in-reply-to message ID
     if parsed.get("in_reply_to"):
-        candidates.extend(
-            _find_cards_by_message_ids(
-                [parsed["in_reply_to"]], seen_cards, reason_prefix="Reply to"
-            )
+        direct = _find_cards_by_message_ids(
+            [parsed["in_reply_to"]], seen_cards, reason_prefix="Reply to"
         )
+        if direct:
+            # ⁂ Direct reply-to hit is authoritative: skip fuzzy matching.
+            return render(
+                request,
+                "core/suggest_cards.html",
+                {"parsed": parsed, "candidates": direct},
+            )
 
     # Also check References header for thread message IDs
     if parsed.get("references"):
@@ -644,7 +649,7 @@ def suggest_cards(request):
         "core/suggest_cards.html",
         {
             "parsed": parsed,
-            "candidates": candidates[:8],  # Limit to 8 suggestions
+            "candidates": candidates[:5],
         },
     )
 
