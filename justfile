@@ -1,5 +1,7 @@
-default:
-    @just --list
+set shell := ["bash", "-euo", "pipefail", "-c"]
+set quiet
+set fallback
+set default-list
 
 # Install dependencies (use --extras to include e.g. dev)
 [group('development')]
