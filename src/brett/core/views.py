@@ -344,6 +344,7 @@ def card_detail(request, card_id):
             "entries": entries,
             "board": board,
             "related_cards": related_cards,
+            "columns": board.columns.all(),
         },
     )
 
@@ -446,6 +447,13 @@ def move_card(request, card_id):
     card.save()
 
     request.session["last_used_column_id"] = new_column.id
+
+    if request.headers.get("HX-Request") == "true":
+        return render(
+            request,
+            "core/card_column_select.html",
+            {"card": card, "columns": new_column.board.columns.all()},
+        )
 
     # Return success response
     return render(request, "core/move_success.html", {"card": card})

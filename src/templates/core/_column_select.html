@@ -1,0 +1,5 @@
+<select id="{{ select_id|default:"column" }}" name="column_id" class="form-input"{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}>
+    {% for column in columns %}
+    <option value="{{ column.id }}" {% if column.id == selected_column_id %}selected{% endif %}>{{ column.name }}</option>
+    {% endfor %}
+</select>

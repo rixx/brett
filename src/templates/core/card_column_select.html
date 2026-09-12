@@ -1,0 +1,11 @@
+<form
+    id="card-column-form"
+    class="card-column-form"
+    hx-post="{% url 'move_card' card.id %}"
+    hx-trigger="change"
+    hx-target="this"
+    hx-swap="outerHTML"
+>
+    {% csrf_token %}
+    {% include "core/_column_select.html" with select_id="card-column" selected_column_id=card.column_id aria_label="Column" %}
+</form>

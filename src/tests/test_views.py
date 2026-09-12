@@ -523,6 +523,32 @@ def test_move_card_to_different_column(client, card, board):
     assert card.last_update_date is not None
 
 
+def test_move_card_htmx_returns_column_select(client, card, board):
+    target_column = Column.objects.create(board=board, name="In Progress", position=1)
+
+    response = client.post(
+        reverse("move_card", kwargs={"card_id": card.id}),
+        {"column_id": target_column.id},
+        headers={"hx-request": "true"},
+    )
+    assert response.status_code == 200
+
+    content = response.content.decode()
+    assert f'value="{target_column.id}" selected' in content
+    assert f'value="{card.column_id}"' in content
+
+
+def test_card_detail_has_column_select(client, card, board):
+    Column.objects.create(board=board, name="In Progress", position=1)
+
+    response = client.get(reverse("card_detail", kwargs={"card_id": card.id}))
+    assert response.status_code == 200
+
+    content = response.content.decode()
+    assert 'name="column_id"' in content
+    assert "In Progress" in content
+
+
 def test_move_card_does_not_update_dates(client, card, column):
     # Dates are based on entries, not user actions
     original_start = card.start_date

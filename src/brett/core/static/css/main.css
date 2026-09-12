@@ -304,6 +304,11 @@ main {
     border-color: #0066cc;
 }
 
+select.form-input {
+    background: #fff;
+    cursor: pointer;
+}
+
 .form-textarea {
     width: 100%;
     padding: 0.5rem;

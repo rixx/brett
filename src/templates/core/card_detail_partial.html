@@ -18,7 +18,7 @@
         <div class="card-metadata">
             <div class="metadata-item">
                 <label>Column:</label>
-                <span>{{ card.column.name }}</span>
+                {% include "core/card_column_select.html" %}
             </div>
             {% if card.description %}
             <div class="metadata-item">
