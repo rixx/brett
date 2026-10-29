@@ -625,6 +625,11 @@ def suggest_cards(request):
     candidates = []
     seen_cards = set()
     recipients = set(parsed.get("recipients") or []) - _ignored_recipient_addresses()
+    team = _team_addresses()
+    shown_recipients = {
+        header: [addr for addr in parsed.get(header) or [] if addr.lower() not in team]
+        for header in ("to", "cc")
+    }
 
     # First, try to find card by in-reply-to message ID
     if parsed.get("in_reply_to"):
@@ -636,7 +641,11 @@ def suggest_cards(request):
             return render(
                 request,
                 "core/suggest_cards.html",
-                {"parsed": parsed, "candidates": direct},
+                {
+                    "parsed": parsed,
+                    "candidates": direct,
+                    "shown_recipients": shown_recipients,
+                },
             )
 
     # Also check References header for thread message IDs
@@ -727,6 +736,7 @@ def suggest_cards(request):
         {
             "parsed": parsed,
             "candidates": candidates[:5],
+            "shown_recipients": shown_recipients,
         },
     )
 

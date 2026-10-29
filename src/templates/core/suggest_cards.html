@@ -14,6 +14,16 @@
             <div class="email-field">
                 <strong>From:</strong> {{ parsed.from_addr }}
             </div>
+            {% if shown_recipients.to %}
+            <div class="email-field">
+                <strong>To:</strong> {{ shown_recipients.to|join:", " }}
+            </div>
+            {% endif %}
+            {% if shown_recipients.cc %}
+            <div class="email-field">
+                <strong>Cc:</strong> {{ shown_recipients.cc|join:", " }}
+            </div>
+            {% endif %}
             <div class="email-field">
                 <strong>Subject:</strong> {{ parsed.subject }}
             </div>

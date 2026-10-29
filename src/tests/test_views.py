@@ -1701,3 +1701,24 @@ def test_suggest_cards_recipient_ignores_team_addresses(client, board, column):
     )
 
     assert content.count("Exact subject and recipient match") == 1
+
+
+def test_suggest_cards_shows_to_and_cc_without_team_addresses(client, board):
+    board.team_addresses = ["team@example.com"]
+    board.save()
+    session = client.session
+    session["parsed_email"] = {
+        "from_addr": "sender@example.com",
+        "subject": "Anything",
+        "date": "2024-01-01 12:00:00",
+        "body": "Test body",
+        "to": ["one@example.com", "Team@example.com"],
+        "cc": ["team@example.com"],
+    }
+    session.save()
+
+    content = client.get(reverse("suggest_cards")).content.decode()
+
+    assert "<strong>To:</strong> one@example.com\n" in content
+    assert "<strong>Cc:</strong>" not in content
+    assert "team@example.com" not in content.lower()

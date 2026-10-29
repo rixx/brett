@@ -495,6 +495,8 @@ Subject: Test
 Body."""
 
     result = parse_raw_email(raw_email)
+    assert result["to"] == ["Test@Example.com", "other@example.org"]
+    assert result["cc"] == ["list@example.net"]
     assert result["recipients"] == [
         "list@example.net",
         "other@example.org",
