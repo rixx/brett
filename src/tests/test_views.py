@@ -951,7 +951,7 @@ def test_suggest_cards_no_duplicate_suggestions(client, board, column):
 
     # Card should appear only once in the suggestions
     # Count occurrences of candidate-card divs
-    candidate_count = content.count('class="candidate-card"')
+    candidate_count = content.count('class="candidate-card card-open-dialog"')
     assert candidate_count == 1
 
 
@@ -1627,7 +1627,7 @@ def test_suggest_cards_prioritises_exact_subject_and_recipient(client, column):
 
     content = _suggest(client, "Re: Your submission", ["bob@example.com"])
 
-    assert content.count('class="candidate-card"') == 2
+    assert content.count('class="candidate-card card-open-dialog"') == 2
     assert "Exact subject and recipient match" in content
     assert content.index("Body from bob@example.com") < content.index(
         "Body from alice@example.com"

@@ -1,5 +1,5 @@
 {% for result in results %}
-<div class="candidate-card">
+<div class="candidate-card card-open-dialog" data-card-id="{{ result.card.id }}">
     <div class="candidate-header">
         <h3>{{ result.card.title }}</h3>
         <span class="candidate-reason">Search result</span>

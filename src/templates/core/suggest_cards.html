@@ -6,6 +6,7 @@
 {% block header %}<h1>Select Card</h1>{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="suggest-container">
     <div class="email-preview">
         <h2>Email to Import</h2>
@@ -39,7 +40,7 @@
 
         <div class="candidate-list">
             {% for candidate in candidates %}
-            <div class="candidate-card">
+            <div class="candidate-card card-open-dialog" data-card-id="{{ candidate.card.id }}">
                 <div class="candidate-header">
                     <h3>{{ candidate.card.title }}</h3>
                     <span class="candidate-reason">{{ candidate.reason }}</span>
@@ -93,8 +94,12 @@
         <a href="{% url 'import_email' %}" class="btn btn-secondary">← Back</a>
     </div>
 </div>
+
+{% include "core/_card_dialog.html" %}
 {% endblock %}
 
 {% block extra_js %}
 <script src="{% static 'js/htmx.min.js' %}"></script>
+<script src="{% static 'js/card-dialog.js' %}"></script>
+<script src="{% static 'js/card-detail.js' %}"></script>
 {% endblock %}

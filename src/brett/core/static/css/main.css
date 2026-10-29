@@ -781,6 +781,14 @@ dialog .card-detail {
     padding: 1.5rem;
 }
 
+.candidate-card.card-open-dialog {
+    cursor: pointer;
+}
+
+.candidate-card.card-open-dialog:hover {
+    border-color: #bbb;
+}
+
 .candidate-header {
     display: flex;
     justify-content: space-between;

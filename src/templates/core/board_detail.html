@@ -55,18 +55,13 @@
     <div id="stats-dialog-content"></div>
 </dialog>
 
-<dialog id="card-dialog">
-    <div class="dialog-header">
-        <a href="#" class="permalink" id="card-permalink">Permalink</a>
-        <button class="dialog-close" id="close-dialog-btn">×</button>
-    </div>
-    <div id="card-dialog-content"></div>
-</dialog>
+{% include "core/_card_dialog.html" %}
 {% endblock %}
 
 {% block extra_js %}
 {% load static %}
 <script src="{% static 'js/htmx.min.js' %}"></script>
+<script src="{% static 'js/card-dialog.js' %}"></script>
 <script src="{% static 'js/board-detail.js' %}"></script>
 <script src="{% static 'js/card-detail.js' %}"></script>
 {% endblock %}

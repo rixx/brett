@@ -567,11 +567,16 @@ def _card_addresses(card):
     return addresses
 
 
-def _ignored_recipient_addresses():
-    """Addresses of core team members and team mailboxes, which are on nearly every thread and say nothing about which card an email belongs to."""
+def _team_addresses():
     addresses = set()
     for team_addresses in Board.objects.values_list("team_addresses", flat=True):
         addresses |= {addr.lower() for addr in team_addresses}
+    return addresses
+
+
+def _ignored_recipient_addresses():
+    """Addresses of core team members and team mailboxes, which are on nearly every thread and say nothing about which card an email belongs to."""
+    addresses = _team_addresses()
     for correspondent in Correspondent.objects.filter(
         core_team_boards__isnull=False
     ).distinct():

@@ -141,6 +141,15 @@ def _recipients_from_msg(msg):
     )
 
 
+def _header_addresses(msg, header):
+    values = msg.get_all(header, [])
+    return [
+        addr
+        for _, addr in getaddresses([_decode_rfc2047(str(v)) for v in values])
+        if addr
+    ]
+
+
 def parse_recipients(raw_message):
     """Return the lowercased To/Cc addresses of a raw email, parsing headers only."""
     if not raw_message:
@@ -159,6 +168,8 @@ def parse_raw_email(raw_message):
     - message_id: Message-ID header
     - date: Parsed datetime object
     - in_reply_to: In-Reply-To header (if any)
+    - to: ⁂ Addresses from the To header, in order
+    - cc: ⁂ Addresses from the Cc header, in order
     - recipients: Lowercased addresses from To and Cc headers
     - body: Email body text
     - raw_message: The original raw message
@@ -247,6 +258,8 @@ def parse_raw_email(raw_message):
         "date": date,
         "in_reply_to": in_reply_to,
         "references": references,
+        "to": _header_addresses(msg, "To"),
+        "cc": _header_addresses(msg, "Cc"),
         "recipients": _recipients_from_msg(msg),
         "body": body.strip() if body else "",
         "raw_message": raw_message,
