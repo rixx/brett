@@ -37,7 +37,7 @@ class BoardAdmin(admin.ModelAdmin):
     inlines = [ColumnInline]
     fieldsets = [
         (None, {"fields": ["name", "slug", "description"]}),
-        ("Core Team", {"fields": ["core_team"]}),
+        ("Core Team", {"fields": ["core_team", "team_addresses"]}),
         ("Timestamps", {"fields": ["created_at", "updated_at"]}),
     ]
 

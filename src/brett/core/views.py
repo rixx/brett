@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404, redirect, render, reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from .email_parser import parse_raw_email
+from .email_parser import parse_raw_email, parse_recipients
 from .models import Board, Card, Column, Correspondent, Entry
 
 
@@ -553,6 +553,64 @@ def _find_cards_by_message_ids(
     return candidates
 
 
+def _entry_addresses(entry):
+    addresses = set(parse_recipients(entry.raw_message))
+    if entry.from_addr:
+        addresses.add(entry.from_addr.lower())
+    return addresses
+
+
+def _card_addresses(card):
+    addresses = set()
+    for entry in card.entries.all():
+        addresses |= _entry_addresses(entry)
+    return addresses
+
+
+def _ignored_recipient_addresses():
+    """Addresses of core team members and team mailboxes, which are on nearly every thread and say nothing about which card an email belongs to."""
+    addresses = set()
+    for team_addresses in Board.objects.values_list("team_addresses", flat=True):
+        addresses |= {addr.lower() for addr in team_addresses}
+    for correspondent in Correspondent.objects.filter(
+        core_team_boards__isnull=False
+    ).distinct():
+        addresses.add(correspondent.email.lower())
+        addresses |= {alias.lower() for alias in correspondent.aliases}
+    return addresses
+
+
+def _find_cards_by_recipients(recipients, seen_cards, limit):
+    """Find recently active cards that include one of the recipients as sender or recipient."""
+    if not recipients or limit <= 0:
+        return []
+    q = Q()
+    for addr in recipients:
+        q |= Q(from_addr__iexact=addr) | Q(raw_message__icontains=addr)
+    # icontains also hits addresses in bodies, so confirm against the headers.
+    matching_entries = (
+        Entry.objects.filter(q).exclude(card_id__in=seen_cards).select_related("card")
+    )
+    candidates = []
+    for entry in matching_entries.order_by("-date")[:50]:
+        if entry.card.id in seen_cards:
+            continue
+        shared = recipients & _entry_addresses(entry)
+        if not shared:
+            continue
+        seen_cards.add(entry.card.id)
+        candidates.append(
+            {
+                "card": entry.card,
+                "reason": f"Same recipient: {sorted(shared)[0]}",
+                "preview": entry.body[:200],
+            }
+        )
+        if len(candidates) >= limit:
+            break
+    return candidates
+
+
 def suggest_cards(request):
     """Import an email - step 2: suggest matching cards."""
     parsed = request.session.get("parsed_email")
@@ -561,6 +619,7 @@ def suggest_cards(request):
 
     candidates = []
     seen_cards = set()
+    recipients = set(parsed.get("recipients") or []) - _ignored_recipient_addresses()
 
     # First, try to find card by in-reply-to message ID
     if parsed.get("in_reply_to"):
@@ -568,7 +627,7 @@ def suggest_cards(request):
             [parsed["in_reply_to"]], seen_cards, reason_prefix="Reply to"
         )
         if direct:
-            # ⁂ Direct reply-to hit is authoritative: skip fuzzy matching.
+            # Direct reply-to hit is authoritative: skip fuzzy matching.
             return render(
                 request,
                 "core/suggest_cards.html",
@@ -589,18 +648,27 @@ def suggest_cards(request):
 
         if clean_subject:
             # Strategy 1: Exact match on card title (case insensitive)
+            # Cards that also share a recipient go first, as common subjects
+            # ("Your submission") are otherwise ambiguous.
             exact_matches = Card.objects.filter(title__iexact=clean_subject)
-            for card in exact_matches:
-                if card.id not in seen_cards:
-                    seen_cards.add(card.id)
-                    first_entry = card.entries.first()
-                    candidates.append(
-                        {
-                            "card": card,
-                            "reason": "Exact subject match",
-                            "preview": first_entry.body[:200] if first_entry else "",
-                        }
-                    )
+            exact_with_recipient = []
+            exact_without_recipient = []
+            for card in exact_matches.prefetch_related("entries"):
+                if card.id in seen_cards:
+                    continue
+                seen_cards.add(card.id)
+                first_entry = card.entries.first()
+                candidate = {
+                    "card": card,
+                    "reason": "Exact subject match",
+                    "preview": first_entry.body[:200] if first_entry else "",
+                }
+                if recipients & _card_addresses(card):
+                    candidate["reason"] = "Exact subject and recipient match"
+                    exact_with_recipient.append(candidate)
+                else:
+                    exact_without_recipient.append(candidate)
+            candidates.extend(exact_with_recipient + exact_without_recipient)
 
             # Strategy 2: Card title contains email subject OR email subject contains card title
             all_cards = Card.objects.prefetch_related("entries").all()
@@ -643,6 +711,10 @@ def suggest_cards(request):
                             "preview": entry.body[:200],
                         }
                     )
+
+    candidates.extend(
+        _find_cards_by_recipients(recipients, seen_cards, limit=5 - len(candidates))
+    )
 
     return render(
         request,

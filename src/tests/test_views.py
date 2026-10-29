@@ -1588,3 +1588,116 @@ def test_card_detail_related_htmx_partial(client, board, column, correspondents)
     assert "<html" not in content
     assert "Related Cards" in content
     assert "Card Two" in content
+
+
+def _recipient_card(column, title, from_addr, to_addr, days_ago=0):
+    date = timezone.now() - datetime.timedelta(days=days_ago)
+    card = Card.objects.create(
+        column=column, title=title, start_date=date, last_update_date=date
+    )
+    Entry.objects.create(
+        card=card,
+        from_addr=from_addr,
+        subject=title,
+        date=date,
+        body=f"Body from {from_addr}",
+        raw_message=f"From: {from_addr}\nTo: {to_addr}\nSubject: {title}\n\nBody",
+    )
+    return card
+
+
+def _suggest(client, subject, recipients):
+    session = client.session
+    session["parsed_email"] = {
+        "from_addr": "sender@example.com",
+        "subject": subject,
+        "date": "2024-01-01 12:00:00",
+        "body": "Test body",
+        "recipients": recipients,
+    }
+    session.save()
+    response = client.get(reverse("suggest_cards"))
+    assert response.status_code == 200
+    return response.content.decode()
+
+
+def test_suggest_cards_prioritises_exact_subject_and_recipient(client, column):
+    _recipient_card(column, "Your submission", "alice@example.com", "me@example.com")
+    _recipient_card(column, "Your submission", "bob@example.com", "me@example.com")
+
+    content = _suggest(client, "Re: Your submission", ["bob@example.com"])
+
+    assert content.count('class="candidate-card"') == 2
+    assert "Exact subject and recipient match" in content
+    assert content.index("Body from bob@example.com") < content.index(
+        "Body from alice@example.com"
+    )
+    assert content.index("Exact subject and recipient match") < content.index(
+        "Exact subject match"
+    )
+
+
+def test_suggest_cards_matches_recipient_in_entry_recipients(client, column):
+    card = _recipient_card(
+        column, "Unrelated topic", "me@example.com", "carol@example.com"
+    )
+
+    content = _suggest(client, "Something else", ["carol@example.com"])
+
+    assert card.title in content
+    assert "Same recipient: carol@example.com" in content
+
+
+def test_suggest_cards_recipient_ignores_body_mentions(client, column):
+    card = Card.objects.create(column=column, title="Body mention")
+    Entry.objects.create(
+        card=card,
+        from_addr="me@example.com",
+        date=timezone.now(),
+        body="Write to carol@example.com",
+        raw_message="From: me@example.com\nTo: x@example.com\n\nWrite to carol@example.com",
+    )
+
+    content = _suggest(client, "Something else", ["carol@example.com"])
+
+    assert "Body mention" not in content
+
+
+def test_suggest_cards_recipient_ignores_core_team(client, board, column):
+    core = Correspondent.objects.create(
+        board=board, email="me@example.com", aliases=["alias@example.com"]
+    )
+    board.core_team.add(core)
+    _recipient_card(column, "Your submission", "alice@example.com", "me@example.com")
+    _recipient_card(column, "Other topic", "bob@example.com", "alias@example.com")
+
+    content = _suggest(
+        client, "Re: Your submission", ["me@example.com", "alias@example.com"]
+    )
+
+    assert "Exact subject match" in content
+    assert "Exact subject and recipient match" not in content
+    assert "Other topic" not in content
+
+
+def test_suggest_cards_recipient_ignores_team_addresses(client, board, column):
+    board.team_addresses = ["Team@example.com"]
+    board.save()
+    _recipient_card(
+        column,
+        "Funding report",
+        "alice@example.com",
+        "one@example.com\nCc: team@example.com",
+    )
+    _recipient_card(
+        column,
+        "Funding report",
+        "alice@example.com",
+        "two@example.com\nCc: team@example.com",
+    )
+
+    content = _suggest(
+        client, "Funding report", ["one@example.com", "team@example.com"]
+    )
+
+    assert content.count("Exact subject and recipient match") == 1

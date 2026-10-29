@@ -3,7 +3,8 @@
 import email
 import re
 from email.header import decode_header as _decode_header
-from email.utils import parseaddr, parsedate_to_datetime
+from email.parser import HeaderParser
+from email.utils import getaddresses, parseaddr, parsedate_to_datetime
 
 
 def _is_placeholder_subject(subject):
@@ -129,6 +130,24 @@ def _extract_body_from_pgp_payload(msg):
     return None
 
 
+def _recipients_from_msg(msg):
+    values = msg.get_all("To", []) + msg.get_all("Cc", [])
+    return sorted(
+        {
+            addr.lower()
+            for _, addr in getaddresses([_decode_rfc2047(str(v)) for v in values])
+            if addr
+        }
+    )
+
+
+def parse_recipients(raw_message):
+    """Return the lowercased To/Cc addresses of a raw email, parsing headers only."""
+    if not raw_message:
+        return []
+    return _recipients_from_msg(HeaderParser().parsestr(raw_message, headersonly=True))
+
+
 def parse_raw_email(raw_message):
     """
     Parse a raw email message and extract headers and body.
@@ -140,6 +159,7 @@ def parse_raw_email(raw_message):
     - message_id: Message-ID header
     - date: Parsed datetime object
     - in_reply_to: In-Reply-To header (if any)
+    - recipients: Lowercased addresses from To and Cc headers
     - body: Email body text
     - raw_message: The original raw message
     """
@@ -227,6 +247,7 @@ def parse_raw_email(raw_message):
         "date": date,
         "in_reply_to": in_reply_to,
         "references": references,
+        "recipients": _recipients_from_msg(msg),
         "body": body.strip() if body else "",
         "raw_message": raw_message,
     }

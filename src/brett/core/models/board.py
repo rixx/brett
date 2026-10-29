@@ -14,6 +14,11 @@ class Board(BrettModel):
         blank=True,
         related_name="core_team_boards",
     )
+    team_addresses = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Shared addresses of the team itself, like a mailing list. Ignored when suggesting cards by recipient.",
+    )
 
     class Meta:
         ordering = ["name"]

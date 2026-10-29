@@ -1,4 +1,4 @@
-from brett.core.email_parser import parse_raw_email
+from brett.core.email_parser import parse_raw_email, parse_recipients
 
 
 def test_parse_email_without_subject():
@@ -484,3 +484,29 @@ def test_single_part_8bit_windows1252_body():
     assert "Ma\u00dfnahmen" in result["body"]  # ß
     assert "Gr\u00fc\u00dfe" in result["body"]  # üße
     assert "\ufffd" not in result["body"]  # no replacement characters
+
+
+def test_parse_email_recipients():
+    raw_email = """From: sender@example.com
+To: Test User <Test@Example.com>, other@example.org
+Cc: "List" <list@example.net>
+Subject: Test
+
+Body."""
+
+    result = parse_raw_email(raw_email)
+    assert result["recipients"] == [
+        "list@example.net",
+        "other@example.org",
+        "test@example.com",
+    ]
+
+
+def test_parse_recipients_ignores_body():
+    raw_email = """From: sender@example.com
+To: recipient@example.com
+
+To: body@example.com"""
+
+    assert parse_recipients(raw_email) == ["recipient@example.com"]
+    assert parse_recipients("") == []
